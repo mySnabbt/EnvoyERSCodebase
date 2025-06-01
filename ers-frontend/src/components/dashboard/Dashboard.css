@@ -52,6 +52,64 @@
   text-decoration: underline;
 }
 
+/* EnvoyAI Card Styles */
+.envoyai-card {
+  background: linear-gradient(135deg, #6e8efb, #a777e3);
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.envoyai-card:before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(rgba(255, 255, 255, 0.1), transparent);
+  opacity: 0.3;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.envoyai-card h3 {
+  color: white;
+  position: relative;
+  z-index: 1;
+  font-weight: bold;
+  font-size: 1.4rem;
+}
+
+.envoyai-description {
+  color: rgba(255, 255, 255, 0.9);
+  margin: 1rem 0;
+  position: relative;
+  z-index: 1;
+  font-size: 1.1rem;
+}
+
+.envoyai-button {
+  display: inline-block;
+  background-color: white;
+  color: #6e8efb;
+  padding: 0.8rem 1.5rem;
+  border-radius: 25px;
+  text-decoration: none;
+  font-weight: bold;
+  margin-top: 1rem;
+  position: relative;
+  z-index: 1;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.envoyai-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  background-color: #f8f9fa;
+}
+
 .quick-actions {
   margin-top: 1rem;
 }

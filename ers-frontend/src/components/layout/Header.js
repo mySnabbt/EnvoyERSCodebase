@@ -53,6 +53,7 @@ const Header = () => {
           {currentUser ? (
             <>
               <ul className="nav-links">
+                <li><Link to="/envoyai" className="envoyai-link">EnvoyAI</Link></li>
                 <li><Link to="/dashboard">Dashboard</Link></li>
                 <li><Link to="/employees">Employees</Link></li>
                 <li><Link to="/departments">Departments</Link></li>

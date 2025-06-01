@@ -5,7 +5,6 @@ import { AuthProvider, AuthContext } from './context/AuthContext';
 // Layout components
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
-import ChatPopup from './components/layout/ChatPopup';
 
 // Auth components
 import Login from './components/auth/Login';
@@ -38,6 +37,9 @@ import SystemSettings from './components/admin/SystemSettings';
 
 // Timesheet component
 import Timesheet from './components/timesheets/Timesheet';
+
+// EnvoyAI component
+import EnvoyAI from './components/envoyai/EnvoyAI';
 
 // Import CSS
 import './App.css';
@@ -72,12 +74,6 @@ const ProtectedRoute = ({ children, requireAdmin }) => {
   }
   
   return children;
-};
-
-// Wrapper for ChatPopup to have access to AuthContext
-const ChatPopupWrapper = () => {
-  const { currentUser } = React.useContext(AuthContext);
-  return currentUser ? <ChatPopup /> : null;
 };
 
 function App() {
@@ -213,15 +209,19 @@ const AppContent = () => {
               </ProtectedRoute>
             } />
             
+            {/* EnvoyAI route */}
+            <Route path="/envoyai" element={
+              <ProtectedRoute>
+                <EnvoyAI />
+              </ProtectedRoute>
+            } />
+            
             {/* Default route */}
             <Route path="/" element={<Navigate to="/login" />} />
             <Route path="*" element={<Navigate to="/login" />} />
           </Routes>
         </main>
         <Footer />
-      
-      {/* Chat Popup */}
-      <ChatPopupWrapper />
       </div>
   );
 };

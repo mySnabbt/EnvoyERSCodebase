@@ -97,6 +97,12 @@ const Dashboard = () => {
       <p>Welcome back, {getUserDisplayName()}!</p>
       
       <div className="dashboard-stats">
+      <div className="stat-card envoyai-card">
+          <h3>EnvoyAI Assistant</h3>
+          <p className="envoyai-description">Your intelligent assistant for ERS</p>
+          <Link to="/envoyai" className="envoyai-button">Chat with EnvoyAI</Link>
+        </div>
+        
         <div className="stat-card">
           <h3>Total Employees</h3>
           <p className="stat-number">{stats.totalEmployees}</p>
