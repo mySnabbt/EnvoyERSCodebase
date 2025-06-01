@@ -46,7 +46,7 @@ const Header = () => {
     <header className="main-header">
       <div className="container header-container">
         <div className="logo">
-          <Link to="/">ERS System</Link>
+          <Link to="/">EnvoyERS</Link>
         </div>
         
         <nav className="main-nav">
@@ -56,7 +56,7 @@ const Header = () => {
                 <li><Link to="/dashboard">Dashboard</Link></li>
                 <li><Link to="/employees">Employees</Link></li>
                 <li><Link to="/departments">Departments</Link></li>
-                <li><Link to="/schedules">Schedules</Link></li>
+                <li><Link to="/schedules">Roaster</Link></li>
                 <li><Link to="/timesheets">Timesheets</Link></li>
                 {isAdmin && (
                   <>

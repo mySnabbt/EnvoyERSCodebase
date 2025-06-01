@@ -1,14 +1,14 @@
 -- Create system_settings table
 CREATE TABLE IF NOT EXISTS system_settings (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  first_day_of_week INTEGER NOT NULL DEFAULT 0, -- 0=Sunday by default
+  first_day_of_week INTEGER NOT NULL DEFAULT 1, -- 1=Monday (updated from Sunday)
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Insert default settings if not exists
 INSERT INTO system_settings (first_day_of_week)
-SELECT 0
+SELECT 1
 WHERE NOT EXISTS (SELECT 1 FROM system_settings);
 
 -- Migration function to update day_of_week values in time_slots when first_day_of_week changes

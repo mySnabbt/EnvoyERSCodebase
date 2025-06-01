@@ -64,9 +64,9 @@ const ScheduleForm = () => {
     return firstDay;
   }
   
-  // System settings state
-  const [systemSettings, setSystemSettings] = useState({ first_day_of_week: 0 });
+  // System settings
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [systemSettings, setSystemSettings] = useState({ first_day_of_week: 1 });
   
   // Standard day names array (0=Sunday, 1=Monday, etc.)
   const standardDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -75,30 +75,14 @@ const ScheduleForm = () => {
   useEffect(() => {
     const fetchSystemSettings = async () => {
       try {
-        // Get token from localStorage
-        const token = localStorage.getItem('token');
-        
-        const response = await fetch('http://localhost:5000/api/settings', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
+        const response = await axios.get('/settings');
+        if (response.data && response.data.data) {
+          setSystemSettings(response.data.data);
         }
-        
-        const data = await response.json();
-        
-        if (data && data.success && data.data) {
-          setSystemSettings(data.data);
-          console.log('System settings loaded:', data.data);
-  }
+        setSettingsLoaded(true);
       } catch (err) {
         console.error('Failed to fetch system settings:', err);
-        // Default to standard first_day_of_week = 0 (Sunday)
-      } finally {
+        // Default to standard first_day_of_week = 1 (Monday)
         setSettingsLoaded(true);
       }
     };
@@ -160,6 +144,7 @@ const ScheduleForm = () => {
   const [availabilityData, setAvailabilityData] = useState({});
   const [employeeId, setEmployeeId] = useState(null);
   const [employeeData, setEmployeeData] = useState(null);
+  const [allEmployees, setAllEmployees] = useState([]);
   
   // Format date for display
   const formatDate = (date) => {
@@ -262,19 +247,20 @@ const ScheduleForm = () => {
     
     const timeSlotIds = slots.map(slot => slot.id);
     
-    // Use the current week's start date instead of hardcoding it
-    // This ensures availability is checked for the specific week being viewed
-    let requestDate = weekStartDate ? new Date(weekStartDate).toISOString().split('T')[0] : 
-                       new Date().toISOString().split('T')[0];
-    
-    const requestData = {
-      date: requestDate,
-      timeSlotIds: timeSlotIds
-    };
+    // FIXED: Always use today's date, not weekStartDate
+    // Create a fresh Date object to ensure we're using the current date
+    const currentDate = new Date();
+    const todayStr = currentDate.toISOString().split('T')[0];
     
     console.log('====================== REQUESTING AVAILABILITY DATA ======================');
-    console.log('Request date (current week):', requestDate);
+    console.log('Using today\'s date:', todayStr, '(instead of week start date)');
+    console.log('Current browser time:', currentDate.toString());
     console.log('Time slot IDs:', timeSlotIds);
+    
+    const requestData = {
+      date: todayStr,
+      timeSlotIds: timeSlotIds
+    };
     
     fetch('http://localhost:5000/api/time-slots/batch-availability', {
       method: 'POST',
@@ -308,7 +294,7 @@ const ScheduleForm = () => {
       console.error('Error fetching availability:', err);
       setError('Failed to load availability data. Please check your connection and try again.');
     });
-  }, [weekStartDate]);
+  }, []);
   
   // Add a separate effect to refresh data when navigating back to the page
   useEffect(() => {
@@ -501,6 +487,47 @@ const ScheduleForm = () => {
     fetchEmployeeRecord();
   }, [currentUser]);
   
+  // Fetch all employees for admin to select from
+  useEffect(() => {
+    const fetchAllEmployees = async () => {
+      // Only fetch all employees if user is admin
+      if (!isAdmin) return;
+      
+      try {
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          console.error('No authentication token found');
+          return;
+        }
+        
+        const response = await fetch('http://localhost:5000/api/employees', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`HTTP error! Status: ${response.status}, Body:`, errorText);
+          throw new Error(`API error (${response.status}): ${errorText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data && data.success && data.data) {
+          console.log('Fetched all employees:', data.data.length);
+          setAllEmployees(data.data);
+        }
+      } catch (err) {
+        console.error('Error fetching all employees:', err);
+      }
+    };
+    
+    fetchAllEmployees();
+  }, [isAdmin]);
+  
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -617,19 +644,39 @@ const ScheduleForm = () => {
     }
   };
   
-  // Check if a date is in the past or is the current day - both are considered "past" for scheduling
-  const isPast = (date) => {
-    const today = new Date();
+  // Check if a date and time slot is in the past
+  const isPast = (date, timeSlot) => {
+    const now = new Date(); // Current date and time
     
     // Create a clean compareDate object from the provided date
     const compareDate = new Date(date);
     
-    // Compare ONLY the date parts (year, month, day), not time
-    const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const compareDateOnly = new Date(compareDate.getFullYear(), compareDate.getMonth(), compareDate.getDate());
+    // Check if the day is in the past
+    if (compareDate.getFullYear() < now.getFullYear() ||
+        (compareDate.getFullYear() === now.getFullYear() && compareDate.getMonth() < now.getMonth()) ||
+        (compareDate.getFullYear() === now.getFullYear() && compareDate.getMonth() === now.getMonth() && 
+         compareDate.getDate() < now.getDate())) {
+      return true; // Definitely in the past if the date is before today
+    }
     
-    // Include the current day as "past" (not fillable) by using <= instead of <
-    return compareDateOnly <= todayDateOnly;
+    // If it's today, check the time
+    if (compareDate.getFullYear() === now.getFullYear() && 
+        compareDate.getMonth() === now.getMonth() && 
+        compareDate.getDate() === now.getDate() && 
+        timeSlot) {
+      
+      // Parse the start time from the time slot
+      const [hours, minutes] = timeSlot.start_time.split(':').map(Number);
+      
+      // Create date object for the time slot's start time today
+      const slotStartTime = new Date();
+      slotStartTime.setHours(hours, minutes, 0, 0);
+      
+      // If current time is past the slot start time, consider it as past
+      return now >= slotStartTime;
+    }
+    
+    return false; // Not in the past
   };
   
   // Helper function to get slot availability
@@ -743,6 +790,18 @@ const ScheduleForm = () => {
     return () => clearTimeout(refreshTimer);
   }, [timeSlots, fetchAvailabilityData]);
   
+  // Handle employee selection change
+  const handleEmployeeChange = (e) => {
+    const selectedId = e.target.value;
+    setEmployeeId(selectedId);
+    
+    // Find the selected employee's data
+    const selectedEmployee = allEmployees.find(emp => emp.id === selectedId);
+    if (selectedEmployee) {
+      setEmployeeData(selectedEmployee);
+    }
+  };
+  
   // Render the form
   return (
     <div className="schedule-form-container">
@@ -761,18 +820,22 @@ const ScheduleForm = () => {
       <form onSubmit={handleSubmit}>
         {/* Employee Information Section */}
         <div className="form-section">
-          <h3>Employee Information</h3>
+          <h3>Schedule Information</h3>
+          
           {isAdmin && (
             <div className="form-group">
               <label htmlFor="employee">Select Employee:</label>
               <select 
                 id="employee"
                 value={employeeId || ''}
-                onChange={(e) => {}}
+                onChange={handleEmployeeChange}
               >
-                <option value={employeeId || ''}>
-                  {employeeData?.name || 'Loading employee data...'}
-                </option>
+                <option value="">Select an employee</option>
+                {allEmployees.map(employee => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.name} ({employee.position})
+                  </option>
+                ))}
               </select>
             </div>
           )}
@@ -842,8 +905,8 @@ const ScheduleForm = () => {
                         const slotId = slot?.id;
                         const isSelected = slot ? isSlotSelected(numDayIndex, slotId) : false;
                         
-                        // Use the actual date from correctDayMap
-                        const pastDay = dayInfo && dayInfo.date ? isPast(dayInfo.date) : false;
+                        // Use the actual date from correctDayMap and check specific time slot
+                        const pastDay = dayInfo && dayInfo.date && slot ? isPast(dayInfo.date, slot) : false;
                         
                         const isFullyBooked = slot ? isSlotAtCapacity(numDayIndex, slotId) : false;
                         

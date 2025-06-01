@@ -397,8 +397,8 @@ const TimeSlotModel = {
         .select('first_day_of_week')
         .single();
       
-      // Get the first day of week from settings, or default to 0 (Sunday)
-      const firstDayOfWeek = settings?.first_day_of_week ?? 0;
+      // Get the first day of week from settings, or default to 1 (Monday)
+      const firstDayOfWeek = settings?.first_day_of_week ?? 1;
       console.log('System setting - first day of week:', firstDayOfWeek);
       
       // Get all time slot limits in one query

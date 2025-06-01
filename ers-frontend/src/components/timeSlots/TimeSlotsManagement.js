@@ -10,7 +10,7 @@ const TimeSlotsManagement = () => {
   const [filter, setFilter] = useState({
     day_of_week: ''
   });
-  const [systemSettings, setSystemSettings] = useState({ first_day_of_week: 0 });
+  const [systemSettings, setSystemSettings] = useState({ first_day_of_week: 1 });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
 
   // Fixed day names array (using standard JavaScript convention)

@@ -534,7 +534,7 @@ const ScheduleController = {
       const errors = [];
       
       // Get system settings for first day of week
-      let systemFirstDayOfWeek = 0; // Default to Sunday (0)
+      let systemFirstDayOfWeek = 1; // Default to Monday (1)
       try {
         const { data: settings } = await supabase
           .from('system_settings')

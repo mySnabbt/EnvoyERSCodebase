@@ -1,21 +1,21 @@
--- Migrate to Saturday-first (assuming current is Sunday-first)
+-- Migrate to Monday-first (updating from previous setting)
 -- Only run this once!
 
 -- First create the system_settings table if it doesn't exist
 CREATE TABLE IF NOT EXISTS system_settings (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  first_day_of_week INTEGER NOT NULL DEFAULT 6, -- 6=Saturday
+  first_day_of_week INTEGER NOT NULL DEFAULT 1, -- 1=Monday
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Insert settings with Saturday (6) as first day if not exists
+-- Insert settings with Monday (1) as first day if not exists
 INSERT INTO system_settings (first_day_of_week)
-SELECT 6
+SELECT 1
 WHERE NOT EXISTS (SELECT 1 FROM system_settings);
 
--- Update any existing settings to use Saturday (6) as first day
-UPDATE system_settings SET first_day_of_week = 6;
+-- Update any existing settings to use Monday (1) as first day
+UPDATE system_settings SET first_day_of_week = 1;
 
 -- Create the migration function if it doesn't exist
 CREATE OR REPLACE FUNCTION update_day_of_week_values(old_first_day INT, new_first_day INT)
@@ -52,11 +52,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Run the migration from Sunday-first (0) to Saturday-first (6)
-SELECT update_day_of_week_values(0, 6);
+-- Run the migration from previous setting to Monday-first (1)
+SELECT update_day_of_week_values(6, 1);
 
--- If you're already using a different system (e.g., Monday-first), use:
--- SELECT update_day_of_week_values(1, 6); -- Monday-first to Saturday-first
+-- If you're using a different previous system, use appropriate value:
+-- SELECT update_day_of_week_values(0, 1); -- Sunday-first to Monday-first
 
 -- Update any scheduled events to align with the new day values
 -- This ensures existing schedules are displayed on the correct days
@@ -67,5 +67,5 @@ WHERE status = 'pending'; -- Only update pending schedules for safety
 -- Output completion message
 DO $$
 BEGIN
-  RAISE NOTICE 'Migration to Saturday-first completed';
+  RAISE NOTICE 'Migration to Monday-first completed';
 END $$; 

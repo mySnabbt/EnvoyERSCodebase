@@ -16,13 +16,13 @@ const TimeSlotForm = () => {
     description: ''
   });
   
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
   const [capacityLimit, setCapacityLimit] = useState('');
   const [showCapacityForm, setShowCapacityForm] = useState(false);
   const [applyToAllDays, setApplyToAllDays] = useState(false);
-  const [systemSettings, setSystemSettings] = useState({ first_day_of_week: 0 });
+  const [systemSettings, setSystemSettings] = useState({ first_day_of_week: 1 });
   
   // Fixed day names array - standard JavaScript order
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];

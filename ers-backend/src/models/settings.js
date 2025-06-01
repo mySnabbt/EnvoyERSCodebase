@@ -14,10 +14,10 @@ const SettingsModel = {
       // Return the first settings object, or default settings if none exist
       return data && data.length > 0 ? 
         data[0] : 
-        { first_day_of_week: 0 }; // Default to Sunday (0) as first day
+        { first_day_of_week: 1 }; // Default to Monday (1) as first day
     } catch (error) {
       console.error('Error fetching system settings:', error);
-      return { first_day_of_week: 0 }; // Default to Sunday (0) as first day
+      return { first_day_of_week: 1 }; // Default to Monday (1) as first day
     }
   },
   

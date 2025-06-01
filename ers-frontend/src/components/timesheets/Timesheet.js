@@ -11,7 +11,7 @@ const Timesheet = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [scheduleData, setScheduleData] = useState([]);
-  const [systemSettings, setSystemSettings] = useState({ first_day_of_week: 0 });
+  const [systemSettings, setSystemSettings] = useState({ first_day_of_week: 1 });
   const [viewType, setViewType] = useState('weekly'); // 'weekly' or 'monthly'
   const [currentDate, setCurrentDate] = useState(new Date());
   const [employees, setEmployees] = useState([]);
@@ -260,12 +260,24 @@ const Timesheet = () => {
     return Array.from(uniqueTimeSlots).sort();
   }, [scheduleData]);
   
-  // Create a map of schedules by date and time
+  // Create a map of schedules by date and time with timezone correction
   const scheduleMap = useMemo(() => {
     const map = {};
     
     scheduleData.forEach(schedule => {
-      const dateStr = schedule.date;
+      // Fix timezone issue by ensuring consistent date handling
+      // Create a date object from the schedule date and force it to be treated as UTC
+      // to prevent any timezone shifts when we format it back to a string
+      const dateObj = new Date(schedule.date + 'T00:00:00Z');
+      
+      // Format the date consistently as YYYY-MM-DD
+      const year = dateObj.getUTCFullYear();
+      const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getUTCDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      
+      console.log(`Original date: ${schedule.date}, Corrected date: ${dateStr}`);
+      
       const timeKey = `${schedule.start_time}-${schedule.end_time}`;
       
       if (!map[dateStr]) {
@@ -315,7 +327,15 @@ const Timesheet = () => {
               <tr key={timeIndex}>
                 <td className="time-cell">{timeSlot}</td>
                 {dateRange.dates.map((date, dateIndex) => {
-                  const dateStr = date.toISOString().split('T')[0];
+                  // Create a timezone-safe date string that won't shift days
+                  const year = date.getFullYear();
+                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                  const day = String(date.getDate()).padStart(2, '0');
+                  const dateStr = `${year}-${month}-${day}`;
+                  
+                  // Log for debugging
+                  console.log(`Checking schedules for date: ${dateStr}`);
+                  
                   const employees = scheduleMap[dateStr]?.[timeSlot] || [];
                   
                   return (
@@ -439,9 +459,17 @@ const Timesheet = () => {
                             const dateStr = date.toISOString().split('T')[0];
                             const daySchedules = [];
                             
+                            // Fix date handling to prevent timezone issues
+                            const year = date.getFullYear();
+                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                            const day = String(date.getDate()).padStart(2, '0');
+                            const correctedDateStr = `${year}-${month}-${day}`;
+                            
+                            console.log(`Monthly view date: Original=${dateStr}, Corrected=${correctedDateStr}`);
+                            
                             // Collect all employee schedules for this day
-                            for (const timeSlot in scheduleMap[dateStr] || {}) {
-                              scheduleMap[dateStr][timeSlot].forEach(schedule => {
+                            for (const timeSlot in scheduleMap[correctedDateStr] || {}) {
+                              scheduleMap[correctedDateStr][timeSlot].forEach(schedule => {
                                 daySchedules.push({
                                   time: timeSlot,
                                   employee: schedule.employees?.name || 'Unknown',

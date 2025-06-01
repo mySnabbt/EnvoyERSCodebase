@@ -1,0 +1,14 @@
+/* Add this class for past time slots */
+.past-slot {
+  opacity: 0.6;
+  background-color: #f5f5f5;
+  cursor: not-allowed !important;
+  position: relative;
+}
+
+.past-indicator {
+  font-size: 0.8em;
+  color: #d32f2f;
+  margin-left: 5px;
+  font-style: italic;
+} 

@@ -5,12 +5,12 @@ import '../schedules/Schedules.css';
 
 const SystemSettings = () => {
   const { currentUser, isAdmin } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
   // System settings state
-  const [firstDayOfWeek, setFirstDayOfWeek] = useState(0); // Default to Sunday (0)
+  const [firstDayOfWeek, setFirstDayOfWeek] = useState(1);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   
   // Day names for display - fixed order (standard JavaScript)

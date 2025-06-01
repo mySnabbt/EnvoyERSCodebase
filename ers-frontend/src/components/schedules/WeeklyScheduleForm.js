@@ -46,7 +46,8 @@ const WeeklyScheduleForm = () => {
     0: '', 1: '', 2: '', 3: '', 4: '', 5: '', 6: ''
   });
   const [slotAvailability, setSlotAvailability] = useState({});
-  const [systemSettings, setSystemSettings] = useState({ first_day_of_week: 0 });
+  const [systemSettings, setSystemSettings] = useState({ first_day_of_week: 1 });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Standard day names array (0=Sunday, 1=Monday, etc.)
   const standardDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -62,7 +63,7 @@ const WeeklyScheduleForm = () => {
         }
       } catch (err) {
         console.error('Failed to fetch system settings:', err);
-        // Default to standard first_day_of_week = 0 (Sunday)
+        // Default to standard first_day_of_week = 1 (Monday)
       }
     };
     
@@ -183,7 +184,7 @@ const WeeklyScheduleForm = () => {
     // Calculate week start date from problematic date
     const testWeekStart = new Date('2025-05-04');
     const dayOfWeek = testWeekStart.getDay(); // 0 = Sunday
-    const firstDayOfWeek = systemSettings.first_day_of_week; // 2 = Tuesday
+    const firstDayOfWeek = systemSettings.first_day_of_week; // 1 = Monday
     const daysToSubtract = (dayOfWeek - firstDayOfWeek + 7) % 7;
     console.log('For May 4th:');
     console.log('- Day of week:', dayOfWeek);
@@ -201,7 +202,46 @@ const WeeklyScheduleForm = () => {
     debugTimezoneDifferences();
   }, []);
   
-  // Calculate which days are in the past and should be disabled
+  // Determine if a specific time slot is in the past
+  const isTimeSlotPast = (date, timeSlot) => {
+    const now = new Date(); // Current date and time
+    
+    // Create a clean date object for comparison
+    const slotDate = new Date(date);
+    
+    // If the date is before today, it's definitely in the past
+    if (slotDate.getFullYear() < now.getFullYear() ||
+        (slotDate.getFullYear() === now.getFullYear() && slotDate.getMonth() < now.getMonth()) ||
+        (slotDate.getFullYear() === now.getFullYear() && slotDate.getMonth() === now.getMonth() && 
+         slotDate.getDate() < now.getDate())) {
+      return true;
+    }
+    
+    // If it's today, check the actual time
+    if (slotDate.getFullYear() === now.getFullYear() && 
+        slotDate.getMonth() === now.getMonth() && 
+        slotDate.getDate() === now.getDate()) {
+      
+      if (!timeSlot || !timeSlot.start_time) {
+        return false; // No time slot information available
+      }
+      
+      // Parse the time from the slot
+      const [hours, minutes] = timeSlot.start_time.split(':').map(Number);
+      
+      // Create date object for the time slot start time
+      const slotStartTime = new Date(slotDate);
+      slotStartTime.setHours(hours, minutes, 0, 0);
+      
+      // If current time is past the slot start time, consider it past
+      return now >= slotStartTime;
+    }
+    
+    return false; // Not in the past
+  };
+  
+  // This now just checks if the day is completely in the past (before today)
+  // We'll do the more granular time-based check when rendering each slot
   const disabledDays = useMemo(() => {
     if (!weekStartDate) return {};
     
@@ -216,7 +256,7 @@ const WeeklyScheduleForm = () => {
       const currentDay = new Date(weekStart);
       currentDay.setDate(weekStart.getDate() + i);
       
-      // Disable if day is in the past
+      // Only disable the entire day if it's strictly in the past
       disabledDaysObj[i] = currentDay < today;
     }
     
@@ -312,13 +352,9 @@ const WeeklyScheduleForm = () => {
       console.log('Current date getDate:', currentDate.getDate());
       console.log('Current date getDay (day of week):', currentDate.getDay());
       
-      // MAJOR FIX: Send TODAY'S DATE (May 9), NOT the week start date (May 6)
-      // This is the key issue - we need to send the current date, not the first day of the week
+      // ALWAYS use today's actual date - this is critical for proper availability checks
       const todayStr = currentDate.toISOString().split('T')[0];
       console.log('TODAY\'S DATE (not week start):', todayStr);
-      
-      // Use TODAY'S DATE for the backend call
-      const dateToSend = todayStr;
       
       // Log for debugging
       console.log('IMPORTANT: Using today\'s date (' + todayStr + '), NOT the week start date (' + weekStartDate + ')');
@@ -329,9 +365,9 @@ const WeeklyScheduleForm = () => {
       console.log('Time slots to check:', timeSlotIds.length);
       
       // Make a single API call to check all time slots at once
-      console.log('Sending API request to /time-slots/batch-availability with date:', dateToSend);
+      console.log('Sending API request to /time-slots/batch-availability with date:', todayStr);
       const response = await axios.post('/time-slots/batch-availability', {
-        date: dateToSend,
+        date: todayStr,
         timeSlotIds
       });
       
@@ -345,7 +381,7 @@ const WeeklyScheduleForm = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          date: dateToSend,
+          date: todayStr,
           timeSlotIds
         })
       });
@@ -381,7 +417,7 @@ const WeeklyScheduleForm = () => {
   
   // Check availability for a specific time slot (fallback method)
   const checkTimeSlotAvailability = async (timeSlotId) => {
-    if (!weekStartDate || !timeSlotId) return;
+    if (!timeSlotId) return;
     
     // If we already have the availability data, use it
     if (slotAvailability[timeSlotId]) {
@@ -389,10 +425,12 @@ const WeeklyScheduleForm = () => {
     }
     
     try {
-      // Convert UI date to backend date
-      const dateStringToSend = convertUiDateToBackendDate(weekStartDate);
+      // Always use today's date for consistent availability checking
+      const currentDate = new Date();
+      const todayStr = currentDate.toISOString().split('T')[0];
       
-      const response = await axios.get(`/time-slots/${timeSlotId}/availability-for-date?date=${dateStringToSend}`);
+      console.log('Checking single time slot availability using today\'s date:', todayStr);
+      const response = await axios.get(`/time-slots/${timeSlotId}/availability-for-date?date=${todayStr}`);
       const { available, current_approved, max_employees } = response.data;
       
       // Update the availability state
@@ -415,7 +453,7 @@ const WeeklyScheduleForm = () => {
   
   // Handle time slot selection for a specific day
   const handleTimeSlotSelect = async (day, timeSlotId) => {
-    // Don't allow selection for past days
+    // Don't allow selection for completely past days
     if (disabledDays[day]) {
       setError(`Cannot select time slots for past dates`);
       return;
@@ -427,6 +465,20 @@ const WeeklyScheduleForm = () => {
         ...prev,
         [day]: ''
       }));
+      return;
+    }
+    
+    // Get the time slot data
+    const timeSlot = timeSlots.find(slot => slot.id === timeSlotId);
+    if (!timeSlot) {
+      setError('Invalid time slot selection');
+      return;
+    }
+    
+    // Check if this specific time slot is in the past
+    const slotDate = getDateForDay(day);
+    if (isTimeSlotPast(slotDate, timeSlot)) {
+      setError(`Cannot select time slots that have already passed`);
       return;
     }
     
@@ -810,11 +862,15 @@ const WeeklyScheduleForm = () => {
                     ) : getTimeSlotsForDay(value).length > 0 ? (
                       getTimeSlotsForDay(value).map(slot => {
                         // Use the enhanced slot object properties directly
+                        // Check if this specific time slot is in the past
+                        const slotDate = getDateForDay(value);
+                        const isSlotPast = isTimeSlotPast(slotDate, slot);
+                        
                         return (
                           <div 
                             key={slot.id} 
-                            className={`time-slot-item ${slot.isSelected ? 'selected' : ''} ${!slot.available ? 'fully-booked' : ''} ${isPastDay ? 'disabled' : ''}`}
-                            onClick={() => !isPastDay && handleTimeSlotSelect(value, slot.isSelected ? '' : slot.id)}
+                            className={`time-slot-item ${slot.isSelected ? 'selected' : ''} ${!slot.available ? 'fully-booked' : ''} ${isSlotPast ? 'past-slot' : ''}`}
+                            onClick={() => !isSlotPast && !isPastDay && handleTimeSlotSelect(value, slot.isSelected ? '' : slot.id)}
                           >
                             <div className="time-slot-content">
                               <span className="time-range">
@@ -824,6 +880,8 @@ const WeeklyScheduleForm = () => {
                               <span className={`availability-indicator ${!slot.available ? 'full' : 'available'}`}>
                                 {slot.capacityInfo}
                               </span>
+                              
+                              {isSlotPast && <span className="past-indicator">(Past)</span>}
                             </div>
                             
                             {slot.name && <div className="time-slot-name">{slot.name}</div>}
