@@ -57,7 +57,7 @@ const Header = () => {
                 <li><Link to="/dashboard">Dashboard</Link></li>
                 <li><Link to="/employees">Employees</Link></li>
                 <li><Link to="/departments">Departments</Link></li>
-                <li><Link to="/schedules">Roaster</Link></li>
+                <li><Link to="/schedules">Roster</Link></li>
                 <li><Link to="/timesheets">Timesheets</Link></li>
                 {isAdmin && (
                   <>
