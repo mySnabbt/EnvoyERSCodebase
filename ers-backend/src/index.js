@@ -10,6 +10,7 @@ const scheduleRoutes = require('./routes/schedules');
 const timeSlotRoutes = require('./routes/timeSlots');
 const rosterRoutes = require('./routes/roster');
 const settingsRoutes = require('./routes/settings');
+const chatRoutes = require('./routes/chat');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -26,6 +27,7 @@ app.use('/api/schedules', scheduleRoutes);
 app.use('/api/time-slots', timeSlotRoutes);
 app.use('/api/roster', rosterRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/chat', chatRoutes);
 
 app.get('/', (req, res) => {
   res.send('Employee Roster System API');
