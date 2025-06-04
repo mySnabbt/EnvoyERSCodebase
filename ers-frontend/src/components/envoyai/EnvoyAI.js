@@ -12,18 +12,31 @@ const EnvoyAI = () => {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   
+  // Add state variables to store available slots after fetching
+  const [availableSlotsCache, setAvailableSlotsCache] = useState([]);
+  const [slotsCacheTimestamp, setSlotsCacheTimestamp] = useState(null);
+  const CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+  
+  // Add state variables to store pending requests
+  const [pendingRequestsCache, setPendingRequestsCache] = useState([]);
+  const [pendingCacheTimestamp, setPendingCacheTimestamp] = useState(null);
+  
   // Common command suggestions to display
   const commonCommands = [
     { text: '/help', description: 'Show all commands' },
     { text: '/profile', description: 'View your profile' },
     { text: '/schedules', description: 'View your schedules' },
     { text: '/employees', description: 'List all employees' },
-    { text: '/departments', description: 'List all departments' }
+    { text: '/departments', description: 'List all departments' },
+    { text: '/slots', description: 'View available slots this week' },
+    { text: '/book', description: 'Book a slot by number' }
   ];
   
   // Admin-only command suggestions
   const adminCommands = [
     { text: '/pending', description: 'Show pending requests' },
+    { text: '/approve', description: 'Approve requests by number' },
+    { text: '/reject', description: 'Reject requests by number' },
     { text: '/users', description: 'List all users' },
     { text: '/stats', description: 'System statistics' }
   ];
@@ -143,18 +156,31 @@ Role: ${currentUser.role}`;
         }
         
         try {
-          const response = await axios.get('/schedules/pending');
+          // Fetch schedules with pending status instead of using the /pending endpoint
+          const response = await axios.get('/schedules', {
+            params: { status: 'pending' }
+          });
+          
           const pendingSchedules = response.data.data;
           
           if (!pendingSchedules || pendingSchedules.length === 0) {
             return 'No pending schedule requests.';
           }
           
-          return `Pending Schedule Requests (${pendingSchedules.length}):\n${pendingSchedules.map(sched => {
+          // Cache the pending requests for the approve command
+          setPendingRequestsCache(pendingSchedules);
+          setPendingCacheTimestamp(Date.now());
+          
+          // Format with serial numbers
+          const pendingOutput = pendingSchedules.map((sched, index) => {
             const date = new Date(sched.date).toLocaleDateString();
             const empName = sched.employee?.name || 'Unknown';
-            return `- ${empName} on ${date}: ${sched.start_time} to ${sched.end_time}`;
-          }).join('\n')}`;
+            const requestId = sched.id;
+            
+            return `${index + 1}. ${empName} on ${date}: ${sched.start_time.substring(0, 5)} to ${sched.end_time.substring(0, 5)} [ID: ${requestId}]`;
+          }).join('\n');
+          
+          return `Pending Schedule Requests (${pendingSchedules.length}):\n${pendingOutput}\n\nTo approve, type /approve followed by the request number(s) (e.g., /approve 1,3) or /approve all to approve all requests.`;
         } catch (error) {
           console.error('Error fetching pending schedules:', error);
           return 'Error fetching pending schedules.';
@@ -318,7 +344,7 @@ ${dept.employees.length > 0
       }
     },
     approve: {
-      description: 'Approve a pending request (Admin only) (format: /approve [request_id])',
+      description: 'Approve pending requests by number (format: /approve [number1,number2,...] or /approve all)',
       isAdmin: true,
       handler: async (args) => {
         if (!isAdmin) {
@@ -326,34 +352,106 @@ ${dept.employees.length > 0
         }
         
         if (!args || args.length < 1) {
-          return 'Please provide the request ID to approve.';
+          return 'Please provide the request number(s) to approve (e.g., /approve 1,3) or /approve all to approve all requests.';
         }
         
-        const requestId = args[0];
+        // Check if cache is expired
+        if (!pendingCacheTimestamp || Date.now() - pendingCacheTimestamp > CACHE_EXPIRY_MS) {
+          return 'Please run /pending first to see pending requests before approving.';
+        }
+        
+        if (pendingRequestsCache.length === 0) {
+          return 'There are no pending requests to approve.';
+        }
         
         try {
-          const response = await axios.patch(`/schedules/${requestId}/approve`, {
-            approved_by: currentUser.id
-          });
+          let requestsToApprove = [];
           
-          if (response.data.success) {
-            return `Request #${requestId} has been approved successfully.`;
+          // Handle "all" option
+          if (args[0].toLowerCase() === 'all') {
+            requestsToApprove = pendingRequestsCache.map((_, index) => index + 1);
           } else {
-            return 'Failed to approve request. Please try again later.';
+            // Parse comma-separated numbers
+            const requestNumbers = args[0].split(',').map(num => parseInt(num.trim()));
+            
+            // Validate all numbers
+            for (const num of requestNumbers) {
+              if (isNaN(num) || num < 1 || num > pendingRequestsCache.length) {
+                return `Invalid request number: ${num}. Please choose numbers between 1 and ${pendingRequestsCache.length}.`;
+              }
+            }
+            
+            requestsToApprove = requestNumbers;
           }
+          
+          // Approve each request
+          const approvalResults = [];
+          
+          for (const requestNum of requestsToApprove) {
+            const requestId = pendingRequestsCache[requestNum - 1].id;
+            
+            try {
+              const response = await axios.patch(`/schedules/${requestId}/approve`, {
+                approved_by: currentUser.id
+              });
+              
+              if (response.data.success) {
+                approvalResults.push({ 
+                  number: requestNum, 
+                  success: true 
+                });
+              } else {
+                approvalResults.push({ 
+                  number: requestNum, 
+                  success: false, 
+                  message: 'Request failed' 
+                });
+              }
+            } catch (error) {
+              approvalResults.push({ 
+                number: requestNum, 
+                success: false, 
+                message: error.response?.data?.message || 'Request failed' 
+              });
+            }
+          }
+          
+          // Format results
+          const successCount = approvalResults.filter(r => r.success).length;
+          const failCount = approvalResults.length - successCount;
+          
+          let resultMessage = `Approval complete: ${successCount} request(s) approved`;
+          if (failCount > 0) {
+            resultMessage += `, ${failCount} failed.`;
+            
+            // Add details for failed requests
+            const failedDetails = approvalResults
+              .filter(r => !r.success)
+              .map(r => `Request #${r.number}: ${r.message}`)
+              .join('\n');
+            
+            resultMessage += `\nFailed requests:\n${failedDetails}`;
+          } else {
+            resultMessage += '.';
+          }
+          
+          // Clear the cache after approval
+          setPendingCacheTimestamp(null);
+          
+          return resultMessage;
         } catch (error) {
-          console.error('Error approving request:', error);
+          console.error('Error approving requests:', error);
           
           if (error.response && error.response.data && error.response.data.message) {
             return `Error: ${error.response.data.message}`;
           }
           
-          return 'Error approving request. Please try again later.';
+          return 'Error approving requests. Please try again later.';
         }
       }
     },
     reject: {
-      description: 'Reject a pending request (Admin only) (format: /reject [request_id] [reason])',
+      description: 'Reject pending requests by number (format: /reject [number1,number2,...] reason or /reject all reason)',
       isAdmin: true,
       handler: async (args) => {
         if (!isAdmin) {
@@ -361,31 +459,285 @@ ${dept.employees.length > 0
         }
         
         if (!args || args.length < 1) {
-          return 'Please provide the request ID and optional reason to reject.';
+          return 'Please provide the request number(s) to reject and an optional reason (e.g., /reject 1,3 schedule conflict).';
         }
         
-        const requestId = args[0];
-        const reason = args.slice(1).join(' ') || 'Rejected via EnvoyAI';
+        // Check if cache is expired
+        if (!pendingCacheTimestamp || Date.now() - pendingCacheTimestamp > CACHE_EXPIRY_MS) {
+          return 'Please run /pending first to see pending requests before rejecting.';
+        }
+        
+        if (pendingRequestsCache.length === 0) {
+          return 'There are no pending requests to reject.';
+        }
         
         try {
-          const response = await axios.patch(`/schedules/${requestId}/reject`, {
-            approved_by: currentUser.id,
-            rejection_reason: reason
-          });
+          let requestsToReject = [];
+          let rejectionReason = "Rejected via EnvoyAI";
           
-          if (response.data.success) {
-            return `Request #${requestId} has been rejected.`;
+          // Handle "all" option
+          if (args[0].toLowerCase() === 'all') {
+            requestsToReject = pendingRequestsCache.map((_, index) => index + 1);
+            rejectionReason = args.slice(1).join(' ') || rejectionReason;
           } else {
-            return 'Failed to reject request. Please try again later.';
+            // Check if first argument is comma-separated numbers
+            const firstArg = args[0];
+            if (/^[\d,]+$/.test(firstArg)) {
+              // Parse comma-separated numbers
+              const requestNumbers = firstArg.split(',').map(num => parseInt(num.trim()));
+              
+              // Validate all numbers
+              for (const num of requestNumbers) {
+                if (isNaN(num) || num < 1 || num > pendingRequestsCache.length) {
+                  return `Invalid request number: ${num}. Please choose numbers between 1 and ${pendingRequestsCache.length}.`;
+                }
+              }
+              
+              requestsToReject = requestNumbers;
+              rejectionReason = args.slice(1).join(' ') || rejectionReason;
+            } else {
+              // Single number followed by reason
+              const requestNum = parseInt(args[0]);
+              if (isNaN(requestNum) || requestNum < 1 || requestNum > pendingRequestsCache.length) {
+                return `Invalid request number: ${args[0]}. Please choose a number between 1 and ${pendingRequestsCache.length}.`;
+              }
+              
+              requestsToReject = [requestNum];
+              rejectionReason = args.slice(1).join(' ') || rejectionReason;
+            }
           }
+          
+          // Reject each request
+          const rejectionResults = [];
+          
+          for (const requestNum of requestsToReject) {
+            const requestId = pendingRequestsCache[requestNum - 1].id;
+            
+            try {
+              const response = await axios.patch(`/schedules/${requestId}/reject`, {
+                approved_by: currentUser.id,
+                rejection_reason: rejectionReason
+              });
+              
+              if (response.data.success) {
+                rejectionResults.push({ 
+                  number: requestNum, 
+                  success: true 
+                });
+              } else {
+                rejectionResults.push({ 
+                  number: requestNum, 
+                  success: false, 
+                  message: 'Request failed' 
+                });
+              }
+            } catch (error) {
+              rejectionResults.push({ 
+                number: requestNum, 
+                success: false, 
+                message: error.response?.data?.message || 'Request failed' 
+              });
+            }
+          }
+          
+          // Format results
+          const successCount = rejectionResults.filter(r => r.success).length;
+          const failCount = rejectionResults.length - successCount;
+          
+          let resultMessage = `Rejection complete: ${successCount} request(s) rejected`;
+          if (failCount > 0) {
+            resultMessage += `, ${failCount} failed.`;
+            
+            // Add details for failed requests
+            const failedDetails = rejectionResults
+              .filter(r => !r.success)
+              .map(r => `Request #${r.number}: ${r.message}`)
+              .join('\n');
+            
+            resultMessage += `\nFailed requests:\n${failedDetails}`;
+          } else {
+            resultMessage += '.';
+          }
+          
+          // Clear the cache after rejection
+          setPendingCacheTimestamp(null);
+          
+          return resultMessage;
         } catch (error) {
-          console.error('Error rejecting request:', error);
+          console.error('Error rejecting requests:', error);
           
           if (error.response && error.response.data && error.response.data.message) {
             return `Error: ${error.response.data.message}`;
           }
           
-          return 'Error rejecting request. Please try again later.';
+          return 'Error rejecting requests. Please try again later.';
+        }
+      }
+    },
+    slots: {
+      description: 'View available slots for this week',
+      isAdmin: false,
+      handler: async () => {
+        try {
+          // Get the current date
+          const today = new Date();
+          
+          // Calculate the week start date (Sunday)
+          const dayOfWeek = today.getDay(); // 0 for Sunday, 1 for Monday, etc.
+          const weekStartDate = new Date(today);
+          weekStartDate.setDate(today.getDate() - dayOfWeek);
+          
+          // Format the date as YYYY-MM-DD
+          const formattedDate = weekStartDate.toISOString().split('T')[0];
+          
+          // Get all time slots
+          const slotsResponse = await axios.get('/time-slots');
+          const allTimeSlots = slotsResponse.data.data;
+          
+          if (!allTimeSlots || allTimeSlots.length === 0) {
+            return 'No time slots found.';
+          }
+          
+          // Check availability for each time slot for this week
+          const availabilityPromises = allTimeSlots.map(slot => 
+            axios.get(`/time-slots/${slot.id}/availability?week_start_date=${formattedDate}`)
+          );
+          
+          const availabilityResults = await Promise.all(availabilityPromises);
+          
+          // Process results to show available slots
+          const availableSlots = allTimeSlots.map((slot, index) => {
+            const availability = availabilityResults[index].data.data;
+            
+            // Map day numbers to names
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const dayName = dayNames[slot.day_of_week];
+            
+            // Calculate the actual date for this day
+            const slotDate = new Date(weekStartDate);
+            slotDate.setDate(weekStartDate.getDate() + slot.day_of_week);
+            const formattedSlotDate = slotDate.toLocaleDateString('en-US', {
+              month: 'numeric',
+              day: 'numeric',
+              year: 'numeric'
+            });
+            
+            // Format time
+            const startTime = slot.start_time.substring(0, 5);
+            const endTime = slot.end_time.substring(0, 5);
+            
+            // Calculate available spots
+            const maxEmployees = availability.max_employees || 'unlimited';
+            const currentCount = availability.current_count || 0;
+            const availableSpots = maxEmployees === 'unlimited' ? 'unlimited' : maxEmployees - currentCount;
+            
+            return {
+              id: slot.id,
+              dayName,
+              dayNumber: slot.day_of_week,
+              date: formattedSlotDate,
+              dateObj: slotDate,
+              time: `${startTime} - ${endTime}`,
+              startTime,
+              endTime,
+              name: slot.name || '',
+              availableSpots,
+              rawDate: slotDate.toISOString().split('T')[0]
+            };
+          });
+          
+          // Sort by day of week
+          availableSlots.sort((a, b) => a.dayNumber - b.dayNumber);
+          
+          // Cache the available slots for the book command to use
+          setAvailableSlotsCache(availableSlots);
+          setSlotsCacheTimestamp(Date.now());
+          
+          // Format the output with serial numbers
+          const slotsOutput = availableSlots.map((slot, index) => {
+            const spotText = slot.availableSpots === 'unlimited' ? 
+              'unlimited spots' : 
+              `${slot.availableSpots} spot${slot.availableSpots !== 1 ? 's' : ''} available`;
+            
+            return `${index + 1}. ${slot.dayName} (${slot.date}), ${slot.time} ${slot.name ? `(${slot.name})` : ''}: ${spotText}`;
+          }).join('\n');
+          
+          return `Available Slots for Week of ${weekStartDate.toLocaleDateString()}:\n${slotsOutput}\n\nTo book a slot, type /book followed by the slot number (e.g. /book 3)`;
+        } catch (error) {
+          console.error('Error fetching available slots:', error);
+          return 'Error fetching available slots.';
+        }
+      }
+    },
+    book: {
+      description: 'Book a slot by its number (format: /book [slot_number])',
+      isAdmin: false,
+      handler: async (args) => {
+        try {
+          // Check if args were provided
+          if (!args || args.length < 1) {
+            return 'Please provide the slot number to book (e.g., /book 3)';
+          }
+          
+          // Parse the slot number
+          const slotNumber = parseInt(args[0]);
+          if (isNaN(slotNumber) || slotNumber < 1) {
+            return 'Please provide a valid slot number.';
+          }
+          
+          // Check if cache is expired
+          if (!slotsCacheTimestamp || Date.now() - slotsCacheTimestamp > CACHE_EXPIRY_MS) {
+            return 'Please run /slots first to see available slots before booking.';
+          }
+          
+          // Check if the slot number is valid
+          if (slotNumber > availableSlotsCache.length) {
+            return `Invalid slot number. Please choose a number between 1 and ${availableSlotsCache.length}.`;
+          }
+          
+          // Get the selected slot
+          const selectedSlot = availableSlotsCache[slotNumber - 1];
+          
+          // Check if the slot has available spots
+          if (selectedSlot.availableSpots !== 'unlimited' && selectedSlot.availableSpots <= 0) {
+            return `Sorry, slot ${slotNumber} has no available spots.`;
+          }
+          
+          // First get the user's employee record
+          const empResponse = await axios.get('/employees');
+          const employees = empResponse.data.data;
+          const userEmployee = employees.find(emp => 
+            emp.email === currentUser.email
+          );
+          
+          if (!userEmployee) {
+            return 'You do not have an employee profile. Please contact an administrator.';
+          }
+          
+          // Submit the schedule request
+          const response = await axios.post('/schedules', {
+            employee_id: userEmployee.id,
+            date: selectedSlot.rawDate,
+            start_time: selectedSlot.startTime,
+            end_time: selectedSlot.endTime,
+            status: 'pending',
+            notes: `Booked via EnvoyAI for ${selectedSlot.name || selectedSlot.time}`,
+            requested_by: currentUser.id
+          });
+          
+          if (response.data.success) {
+            return `Successfully booked slot ${slotNumber}: ${selectedSlot.dayName} (${selectedSlot.date}), ${selectedSlot.time}. Your booking is pending approval.`;
+          } else {
+            return 'Failed to book the slot. Please try again later.';
+          }
+        } catch (error) {
+          console.error('Error booking slot:', error);
+          
+          if (error.response && error.response.data && error.response.data.message) {
+            return `Error: ${error.response.data.message}`;
+          }
+          
+          return 'Error booking the slot. Please try again later.';
         }
       }
     }
