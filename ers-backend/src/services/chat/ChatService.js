@@ -681,6 +681,36 @@ ${dept.employees.length > 0
         // Calculate available spots
         const availableSpots = maxEmployees === null ? 'unlimited' : maxEmployees - currentCount;
         
+        // Check if the slot is in the past using the same logic as frontend
+        const now = new Date();
+        let isPast = false;
+        
+        // If the date is before today, it's definitely in the past
+        if (slotDate.getFullYear() < now.getFullYear() ||
+            (slotDate.getFullYear() === now.getFullYear() && slotDate.getMonth() < now.getMonth()) ||
+            (slotDate.getFullYear() === now.getFullYear() && slotDate.getMonth() === now.getMonth() && 
+            slotDate.getDate() < now.getDate())) {
+          isPast = true;
+        }
+        
+        // If it's today, check the actual time
+        if (slotDate.getFullYear() === now.getFullYear() && 
+            slotDate.getMonth() === now.getMonth() && 
+            slotDate.getDate() === now.getDate()) {
+          
+          // Parse the time from the slot
+          const [hours, minutes] = startTime.split(':').map(Number);
+          
+          // Create date object for the time slot start time
+          const slotStartTime = new Date(slotDate);
+          slotStartTime.setHours(hours, minutes, 0, 0);
+          
+          // If current time is past the slot start time, consider it past
+          if (now >= slotStartTime) {
+            isPast = true;
+          }
+        }
+        
         availableSlots.push({
           id: slot.id,
           dayName,
@@ -692,7 +722,8 @@ ${dept.employees.length > 0
           endTime,
           name: slot.name || '',
           availableSpots,
-          rawDate: slotDate.toISOString().split('T')[0]
+          rawDate: slotDate.toISOString().split('T')[0],
+          isPast
         });
       }
       
@@ -709,7 +740,12 @@ ${dept.employees.length > 0
           'unlimited spots' : 
           `${slot.availableSpots} spot${slot.availableSpots !== 1 ? 's' : ''} available`;
         
-        return `${index + 1}. ${slot.dayName} (${slot.date}), ${slot.time} ${slot.name ? `(${slot.name})` : ''}: ${spotText}`;
+        let statusText = '';
+        if (slot.isPast) {
+          statusText = ' [PAST - Cannot book]';
+        }
+        
+        return `${index + 1}. ${slot.dayName} (${slot.date}), ${slot.time} ${slot.name ? `(${slot.name})` : ''}: ${spotText}${statusText}`;
       }).join('\n');
       
       return `Available Slots for Week of ${weekStartDate.toLocaleDateString()}:\n${slotsOutput}\n\nTo book a slot, type /book followed by the slot number (e.g. /book 3)`;
@@ -748,6 +784,11 @@ ${dept.employees.length > 0
       
       // Get the selected slot
       const selectedSlot = this.cache.availableSlots[slotNumber - 1];
+      
+      // Check if the slot is in the past (using exactly the same logic as frontend)
+      if (selectedSlot.isPast) {
+        return `Cannot book slot ${slotNumber} as it has already passed.`;
+      }
       
       // Check if the slot has available spots
       if (selectedSlot.availableSpots !== 'unlimited' && selectedSlot.availableSpots <= 0) {
