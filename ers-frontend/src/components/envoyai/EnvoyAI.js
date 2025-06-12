@@ -2,17 +2,55 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
 import './EnvoyAI.css';
+import AIDebugPanel from './AIDebugPanel';
+import './AIDebugPanel.css';
 
 const EnvoyAI = () => {
   const { currentUser, isAdmin } = useAuth();
-  const [messages, setMessages] = useState([
-    { id: 1, text: 'Welcome to EnvoyAI! Type /help to see available commands or click on a suggested command below.', sender: 'system' }
-  ]);
+  const [messages, setMessages] = useState(() => {
+    // Load messages from localStorage if available
+    const savedMessages = localStorage.getItem('envoyai_messages');
+    if (savedMessages) {
+      try {
+        return JSON.parse(savedMessages);
+      } catch (e) {
+        console.error('Error parsing saved messages', e);
+      }
+    }
+    // Default welcome message
+    return [
+      { id: 1, text: 'Welcome to EnvoyAI! You can use commands starting with "/" or just chat naturally. Type /help to see available commands.', sender: 'system' }
+    ];
+  });
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const [availableCommands, setAvailableCommands] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [chatMode, setChatMode] = useState(() => {
+    // Load chat mode from localStorage if available
+    return localStorage.getItem('envoyai_mode') || 'hybrid';
+  });
+  const [debugLogs, setDebugLogs] = useState([]);
+  const [showDebugPanel, setShowDebugPanel] = useState(() => {
+    // Check if debug panel should be shown (admin only)
+    return isAdmin && localStorage.getItem('show_debug_panel') === 'true';
+  });
+  
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('envoyai_messages', JSON.stringify(messages));
+  }, [messages]);
+  
+  // Save chat mode to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('envoyai_mode', chatMode);
+  }, [chatMode]);
+  
+  // Save debug panel visibility preference
+  useEffect(() => {
+    localStorage.setItem('show_debug_panel', showDebugPanel.toString());
+  }, [showDebugPanel]);
   
   // Load available commands when component mounts
   useEffect(() => {
@@ -55,7 +93,21 @@ const EnvoyAI = () => {
       }
     };
     
+    // Clear chat history on the backend when component mounts
+    const clearChatHistory = async () => {
+      try {
+        await axios.post('/chat/clear');
+        // After clearing on the backend, reset the local messages
+        setMessages([
+          { id: Date.now(), text: 'Welcome to EnvoyAI! You can use commands starting with "/" or just chat naturally. Type /help to see available commands.', sender: 'system' }
+        ]);
+      } catch (error) {
+        console.error('Error clearing chat history:', error);
+      }
+    };
+    
     fetchCommands();
+    clearChatHistory();
   }, [currentUser]);
 
   // Scroll to bottom when messages change
@@ -78,7 +130,7 @@ const EnvoyAI = () => {
 
   const addMessage = (text, sender = 'user') => {
     const newMessage = {
-      id: messages.length + 1,
+      id: Date.now(), // Use timestamp for unique ID
       text,
       sender,
       timestamp: new Date().toISOString()
@@ -94,7 +146,11 @@ const EnvoyAI = () => {
     const args = parts.slice(1);
     
     // Add a loading message
-    addMessage('Processing...', 'system');
+    const loadingMsgId = Date.now();
+    setMessages(prevMessages => [
+      ...prevMessages, 
+      { id: loadingMsgId, text: 'Processing...', sender: 'system' }
+    ]);
     setLoading(true);
     
     try {
@@ -106,8 +162,13 @@ const EnvoyAI = () => {
       
       // Remove the loading message
       setMessages(prevMessages => 
-        prevMessages.filter(msg => msg.text !== 'Processing...')
+        prevMessages.filter(msg => msg.id !== loadingMsgId)
       );
+      
+      // Update debug logs if available
+      if (response.data?.data?.debugLogs) {
+        setDebugLogs(response.data.data.debugLogs);
+      }
       
       // Add the response
       if (response.data?.success) {
@@ -120,7 +181,7 @@ const EnvoyAI = () => {
       
       // Remove the loading message
       setMessages(prevMessages => 
-        prevMessages.filter(msg => msg.text !== 'Processing...')
+        prevMessages.filter(msg => msg.id !== loadingMsgId)
       );
       
       // Show error message
@@ -133,6 +194,56 @@ const EnvoyAI = () => {
       setLoading(false);
     }
   };
+  
+  const processMessage = async (messageText) => {
+    // Add a loading message
+    const loadingMsgId = Date.now();
+    setMessages(prevMessages => [
+      ...prevMessages, 
+      { id: loadingMsgId, text: 'Processing...', sender: 'system' }
+    ]);
+    setLoading(true);
+    
+    try {
+      // Send the message to the backend
+      const response = await axios.post('/chat/message', {
+        message: messageText
+      });
+      
+      // Remove the loading message
+      setMessages(prevMessages => 
+        prevMessages.filter(msg => msg.id !== loadingMsgId)
+      );
+      
+      // Update debug logs if available
+      if (response.data?.data?.debugLogs) {
+        setDebugLogs(response.data.data.debugLogs);
+      }
+      
+      // Add the response
+      if (response.data?.success) {
+        addMessage(response.data.data.response, 'system');
+      } else {
+        addMessage(`Error: ${response.data?.message || 'Something went wrong'}`, 'system');
+      }
+    } catch (error) {
+      console.error(`Error processing message:`, error);
+      
+      // Remove the loading message
+      setMessages(prevMessages => 
+        prevMessages.filter(msg => msg.id !== loadingMsgId)
+      );
+      
+      // Show error message
+      if (error.response?.data?.message) {
+        addMessage(`Error: ${error.response.data.message}`, 'system');
+      } else {
+        addMessage('An error occurred while processing your message.', 'system');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -140,13 +251,19 @@ const EnvoyAI = () => {
     if (!inputValue.trim()) return;
     
     const userInput = inputValue.trim();
-    addMessage(userInput);
+    // Add user message to chat
+    addMessage(userInput, 'user');
     setInputValue('');
     
     if (userInput.startsWith('/')) {
+      // Always process commands with the command endpoint
       await processCommand(userInput);
-    } else {
+    } else if (chatMode === 'command') {
+      // In command-only mode, remind the user to use commands
       addMessage("I'm a command-based assistant. Please use commands starting with '/' (e.g., /help)", 'system');
+    } else {
+      // In chat or hybrid mode, process as a message
+      await processMessage(userInput);
     }
   };
 
@@ -158,10 +275,56 @@ const EnvoyAI = () => {
   const handleHelpClick = () => {
     processCommand('/help');
   };
+  
+  const toggleChatMode = () => {
+    if (chatMode === 'command') {
+      setChatMode('chat');
+      addMessage('Switched to chat mode. You can now talk naturally.', 'system');
+    } else if (chatMode === 'chat') {
+      setChatMode('hybrid');
+      addMessage('Switched to hybrid mode. You can use commands or talk naturally.', 'system');
+    } else {
+      setChatMode('command');
+      addMessage('Switched to command mode. Please use commands starting with /.', 'system');
+    }
+  };
+  
+  const clearChat = () => {
+    if (window.confirm('Are you sure you want to clear the chat history?')) {
+      setMessages([
+        { id: Date.now(), text: 'Chat history cleared. Welcome back to EnvoyAI!', sender: 'system' }
+      ]);
+    }
+  };
+  
+  const toggleDebugPanel = () => {
+    setShowDebugPanel(!showDebugPanel);
+  };
 
   return (
     <div className="envoyai-container">
       <div className="envoyai-chat">
+        <div className="envoyai-header">
+          <h2>EnvoyAI Assistant</h2>
+          <div className="header-controls">
+            <div className="mode-toggle" onClick={toggleChatMode}>
+              Mode: {chatMode === 'command' ? 'Commands' : chatMode === 'chat' ? 'Chat' : 'Hybrid'}
+            </div>
+            <div className="clear-chat" onClick={clearChat} title="Clear chat history">
+              Clear
+            </div>
+            {isAdmin && (
+              <div 
+                className={`debug-toggle ${showDebugPanel ? 'active' : ''}`} 
+                onClick={toggleDebugPanel}
+                title="Toggle debug panel"
+              >
+                Debug
+              </div>
+            )}
+          </div>
+        </div>
+        
         <div className="envoyai-messages">
           {messages.map(message => (
             <div 
@@ -211,7 +374,7 @@ const EnvoyAI = () => {
             type="text"
             value={inputValue}
             onChange={handleInputChange}
-            placeholder="Type a command (e.g., /help)"
+            placeholder={chatMode === 'command' ? "Type a command (e.g., /help)" : "Type a message or command..."}
             ref={inputRef}
             disabled={loading}
           />
@@ -219,6 +382,9 @@ const EnvoyAI = () => {
             <i className="fas fa-paper-plane"></i>
           </button>
         </form>
+        
+        {/* Debug panel for admins */}
+        <AIDebugPanel logs={debugLogs} visible={isAdmin && showDebugPanel} />
       </div>
     </div>
   );

@@ -84,8 +84,11 @@ const ScheduleModel = {
 
   // Request a schedule (create with pending status)
   async requestSchedule(scheduleData) {
+    console.log(`[DEBUG] Request schedule called with data:`, JSON.stringify(scheduleData, null, 2));
+    
     // Ensure dates and times are valid
     if (!this.isValidScheduleTime(scheduleData.start_time, scheduleData.end_time)) {
+      console.log('[DEBUG] Invalid schedule times - end time is not after start time');
       throw new Error('Invalid schedule times. End time must be after start time.');
     }
 
@@ -99,9 +102,11 @@ const ScheduleModel = {
     );
 
     if (hasConflict) {
-      throw new Error('Schedule conflicts with an existing time slot for this day.');
+      console.log('[DEBUG] Schedule conflict detected');
+      throw new Error('Schedule conflicts with an existing time slot. You already have an overlapping booking during this time period.');
     }
 
+    console.log('[DEBUG] No conflicts found, creating schedule');
     // Use the createSchedule method which is designed to handle batch operations
     return this.createSchedule(scheduleData);
   },
@@ -263,10 +268,18 @@ const ScheduleModel = {
     const formattedStartTime = typeof startTime === 'string' ? startTime : startTime.toString();
     const formattedEndTime = typeof endTime === 'string' ? endTime : endTime.toString();
     
+    console.log(`[DEBUG] Checking schedule conflict:
+      - Employee ID: ${employeeId}
+      - Date: ${date}
+      - Start Time: ${formattedStartTime}
+      - End Time: ${formattedEndTime}
+      - Exclude ID: ${excludeId || 'none'}
+    `);
+    
     // Get all schedules for this employee on this date that aren't rejected
     let query = supabase
       .from(schedulesTable)
-      .select('id, start_time, end_time')
+      .select('id, start_time, end_time, status, time_slot_id')
       .eq('employee_id', employeeId)
       .eq('date', date)
       .not('status', 'eq', 'rejected');
@@ -278,21 +291,44 @@ const ScheduleModel = {
     
     const { data, error } = await query;
     
-    if (error) throw error;
+    if (error) {
+      console.error('[DEBUG] Error checking for schedule conflicts:', error);
+      throw error;
+    }
+    
+    console.log(`[DEBUG] Found ${data?.length || 0} existing schedules for this employee on ${date}:`, data);
+    
+    // MODIFIED BEHAVIOR: Allow multiple bookings on the same day as long as they don't overlap in time
+    // This is more lenient than the previous implementation which disallowed any booking on the same day
     
     // Check each schedule for true overlaps
-    for (const schedule of data) {
+    for (const schedule of data || []) {
       // True overlap: new schedule starts before existing ends AND 
       // new schedule ends after existing starts
       // BUT allow exact touching (one ends exactly when another starts)
-      if (formattedStartTime < schedule.end_time && 
-          formattedEndTime > schedule.start_time && 
-          formattedStartTime !== schedule.end_time && 
-          formattedEndTime !== schedule.start_time) {
+      const hasOverlap = formattedStartTime < schedule.end_time && 
+                         formattedEndTime > schedule.start_time && 
+                         formattedStartTime !== schedule.end_time && 
+                         formattedEndTime !== schedule.start_time;
+      
+      console.log(`[DEBUG] Checking overlap with schedule ${schedule.id}:
+        - Existing schedule: ${schedule.start_time} - ${schedule.end_time} (${schedule.status})
+        - New schedule: ${formattedStartTime} - ${formattedEndTime}
+        - Has overlap: ${hasOverlap}
+        - Condition breakdown:
+          * formattedStartTime < schedule.end_time: ${formattedStartTime < schedule.end_time}
+          * formattedEndTime > schedule.start_time: ${formattedEndTime > schedule.start_time}
+          * formattedStartTime !== schedule.end_time: ${formattedStartTime !== schedule.end_time}
+          * formattedEndTime !== schedule.start_time: ${formattedEndTime !== schedule.start_time}
+      `);
+      
+      if (hasOverlap) {
+        console.log(`[DEBUG] Conflict found with schedule ${schedule.id}`);
         return true; // Conflict found
       }
     }
     
+    console.log('[DEBUG] No conflicts found');
     return false; // No conflict
   },
 

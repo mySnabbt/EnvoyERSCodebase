@@ -19,6 +19,16 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+// Health check endpoint for connection testing
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'API server is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/employees', employeeRoutes);

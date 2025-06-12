@@ -1,129 +1,92 @@
-# Employee Record System (ERS)
+# ERS Mobile App
 
-A full-stack web application for managing employee records, departments, and schedules.
-
-## Project Structure
-
-This repository contains both frontend and backend code:
-
-- **ers-frontend**: React-based frontend application
-- **ers-backend**: Node.js backend API with Express
+A React Native mobile application for the Employee Reservation System (ERS).
 
 ## Features
 
-- User authentication and role-based access control (Admin/Employee)
-- Employee management with full CRUD operations
-- Department organization
-- User management for administrators
-- Profile management for employees
+- User authentication (login/register)
+- View available slots
+- Make reservations
+- View and manage your reservations
+- Chat with AI assistant
+- User profile management
 
-## Prerequisites
+## Tech Stack
 
-- Node.js (v14+)
+- React Native with Expo
+- React Navigation for routing
+- Axios for API requests
+- Secure storage for auth tokens
+- Context API for state management
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js (v14 or later)
 - npm or yarn
-- PostgreSQL database (using Supabase)
+- Expo CLI
+- Android Studio (for Android development)
+- Xcode (for iOS development, Mac only)
 
-## Setup Instructions
+### Installation
 
-### Backend Setup
-
-1. Navigate to the backend folder:
-   ```
-   cd ers-backend
-   ```
-
+1. Clone the repository
 2. Install dependencies:
    ```
    npm install
    ```
-
-3. Create a `.env` file in the `ers-backend` directory with the following variables:
-   ```
-   PORT=5000
-   SUPABASE_URL=your_supabase_url
-   SUPABASE_KEY=your_supabase_key
-   JWT_SECRET=your_jwt_secret
-   ```
-
-4. Initialize the database by running the SQL scripts in the `database` folder
-
-5. Start the backend server:
+3. Update the API configuration in `src/config/api.js` to point to your backend server
+4. Start the development server:
    ```
    npm start
    ```
+5. Follow the instructions in the terminal to launch the app on your preferred platform
 
-### Frontend Setup
+### Testing on Physical Devices
 
-1. Navigate to the frontend folder:
-   ```
-   cd ers-frontend
-   ```
+1. Install the Expo Go app on your device
+2. Scan the QR code shown in the terminal after running `npm start`
+3. The app will open in Expo Go
 
-2. Install dependencies:
-   ```
-   npm install
-   ```
+## Project Structure
 
-3. Start the frontend development server:
-   ```
-   npm start
-   ```
+```
+ers-app/
+├── src/
+│   ├── assets/          # Images, fonts, and other static assets
+│   ├── components/      # Reusable UI components
+│   ├── config/          # Configuration files
+│   ├── navigation/      # Navigation setup
+│   ├── screens/         # App screens
+│   ├── services/        # API services
+│   └── utils/           # Utility functions and helpers
+├── App.js               # Entry point
+└── package.json         # Dependencies
+```
 
-## API Endpoints
+## Building for Production
 
-### Authentication
+### Android
 
-- `POST /api/auth/register` - Register a new user
-- `POST /api/auth/login` - Login and receive JWT token
-- `GET /api/auth/me` - Get current user info
+```
+expo build:android
+```
 
-### Employees
+### iOS
 
-- `GET /api/employees` - Get all employees
-- `GET /api/employees/:id` - Get employee by ID
-- `POST /api/employees` - Create new employee
-- `PUT /api/employees/:id` - Update employee
-- `DELETE /api/employees/:id` - Delete employee
+```
+expo build:ios
+```
 
-### Departments
+## Contributing
 
-- `GET /api/departments` - Get all departments
-- `GET /api/departments/:id` - Get department by ID
-- `POST /api/departments` - Create new department
-- `PUT /api/departments/:id` - Update department
-- `DELETE /api/departments/:id` - Delete department
-
-### User Management (Admin only)
-
-- `GET /api/auth/users` - Get all users
-- `GET /api/auth/users/without-employee` - Get users without employee profiles
-- `PATCH /api/auth/users/:userId/role` - Update user role
-
-## Database Schema
-
-The system uses the following database tables:
-
-- **users**: Authentication and user information
-- **employees**: Employee profiles linked to user accounts
-- **departments**: Department information
-- **schedules**: Employee schedules
-
-## Development Workflow
-
-1. Backend changes should include appropriate tests
-2. Frontend components follow a modular structure
-3. Ensure proper error handling and validation
-
-## Security Considerations
-
-- Environment variables are used for sensitive configuration
-- JWT authentication secures all API endpoints
-- Role-based access controls are enforced
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
-[MIT License](LICENSE)
-
-## Contributors
-
-- Your Name - Initial work 
+This project is licensed under the MIT License. 
