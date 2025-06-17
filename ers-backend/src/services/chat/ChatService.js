@@ -5,6 +5,7 @@ const TimeSlotModel = require('../../models/timeSlot');
 const UserModel = require('../../models/user');
 const OpenAIService = require('./OpenAIService');
 const SystemSettingsModel = require('../../models/systemSettings');
+const SqlExecutionService = require('./SqlExecutionService');
 
 class ChatService {
   constructor() {
@@ -77,6 +78,23 @@ class ChatService {
           return { error: 'This function is only available to administrators' };
         }
         return await ScheduleModel.getSchedules({ status: 'pending' });
+      },
+      executeReadOnlySql: async ({ query, explanation }, context = {}) => {
+        // Check if user is admin
+        if (context.user?.role !== 'admin') {
+          return { 
+            error: 'This function is only available to administrators',
+            success: false
+          };
+        }
+
+        console.log(`[SQL REQUEST] Admin ${context.user.id} executing SQL query with explanation: ${explanation}`);
+        
+        return await SqlExecutionService.executeReadOnlyQuery(
+          query, 
+          context.user.id, 
+          context.user.role
+        );
       },
       getAvailableTimeSlots: async () => {
         try {

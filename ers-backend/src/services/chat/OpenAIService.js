@@ -70,6 +70,22 @@ If you don't have certain information, say so clearly rather than inventing deta
 
 ${userInfo ? `Current user: ${userInfo.name || userInfo.email} (${userInfo.role})` : ''}
 ${userInfo && userInfo.role === 'admin' ? 'This user is an administrator and has access to all functions. Admins can book slots for other employees and their bookings are auto-approved.' : ''}
+
+USING SQL FUNCTION (ADMIN ONLY):
+${userInfo && userInfo.role === 'admin' ? 'As an admin, you have access to the executeReadOnlySql function for custom database queries. IMPORTANT RULES:' : 'The executeReadOnlySql function is ONLY available to admin users.'}
+${userInfo && userInfo.role === 'admin' ? '- ALWAYS try to use specialized functions first (getAllEmployees, getUserSchedules, etc.)' : ''}
+${userInfo && userInfo.role === 'admin' ? '- Only use executeReadOnlySql when existing functions cannot provide the specific data needed' : ''}
+${userInfo && userInfo.role === 'admin' ? '- Only use SELECT statements (never INSERT, UPDATE, DELETE, or DDL statements)' : ''}
+${userInfo && userInfo.role === 'admin' ? '- Explain why specialized functions were insufficient for this request' : ''}
+${userInfo && userInfo.role === 'admin' ? '- Be mindful of query complexity and result size' : ''}
+
+${userInfo && userInfo.role === 'admin' ? `DATABASE SCHEMA FOR SQL QUERIES:
+- users: id(UUID), email, password, name, role, first_name, last_name, phone, full_name, created_at, updated_at
+- departments: id(UUID), name, description, created_at, updated_at
+- employees: id(UUID), name, email, phone, position, department_id(UUID -> departments.id), hire_date, status, created_at, updated_at, user_id(UUID -> users.id)
+- schedules: id(UUID), employee_id(UUID -> employees.id), date, start_time, end_time, notes, created_at, updated_at, requested_by(UUID -> users.id), approved_by(UUID -> users.id), approval_date, time_slot_id(UUID -> time_slots.id), week_start_date, rejection_reason, status(pending/approved/rejected)
+- time_slots: id(UUID), day_of_week(int, 0=Sunday), start_time, end_time, name, description, created_at, updated_at
+- time_slot_limits: id(UUID), time_slot_id(UUID -> time_slots.id), max_employees(int), created_at, updated_at` : ''}
 Current date: ${new Date().toLocaleDateString()}
 
 RESPONSE FORMAT:
@@ -212,6 +228,23 @@ COMMON BOOKING ERRORS:
               }
             },
             required: ["scheduleId"]
+          }
+        },
+        executeReadOnlySql: {
+          description: "ADMIN ONLY: Execute a read-only SQL query to retrieve custom data from the database. Only use this when existing functions cannot provide the required data.",
+          parameters: {
+            type: "object",
+            properties: {
+              query: {
+                type: "string",
+                description: "The SQL query to execute. MUST be a SELECT statement only. No INSERT, UPDATE, DELETE, or DDL statements allowed."
+              },
+              explanation: {
+                type: "string",
+                description: "Brief explanation of why this SQL query is needed instead of using standard functions."
+              }
+            },
+            required: ["query", "explanation"]
           }
         }
       };
