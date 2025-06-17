@@ -44,10 +44,20 @@ class OpenAIService {
    * @param {Object} tools - Available tools/functions
    * @returns {Promise<Object>} - The AI response
    */
-  async processMessage(message, history, tools) {
+  async processMessage(message, history, toolsWithContext) {
     try {
       // Extract user info from the latest message if available
       const userInfo = history.length > 0 && history[0].userInfo ? history[0].userInfo : null;
+      
+      // Extract context from tools if provided
+      const context = toolsWithContext.context || {};
+      const tools = { ...toolsWithContext };
+      delete tools.context; // Remove context from tools object
+      
+      // Log the context
+      if (process.env.DEBUG_AI_LOGS === 'true') {
+        console.log('Context provided:', JSON.stringify(context, null, 2));
+      }
       
       // Prepare the system message with simplified approach instructions
       const systemMessage = {
@@ -59,7 +69,7 @@ CRITICAL INSTRUCTION: You must ONLY use actual data returned by the tools. NEVER
 If you don't have certain information, say so clearly rather than inventing details.
 
 ${userInfo ? `Current user: ${userInfo.name || userInfo.email} (${userInfo.role})` : ''}
-${userInfo && userInfo.role === 'admin' ? 'This user is an administrator and has access to all functions.' : ''}
+${userInfo && userInfo.role === 'admin' ? 'This user is an administrator and has access to all functions. Admins can book slots for other employees and their bookings are auto-approved.' : ''}
 Current date: ${new Date().toLocaleDateString()}
 
 RESPONSE FORMAT:
@@ -80,6 +90,7 @@ IMPORTANT RULES:
 - For booking slots, ALWAYS call getAvailableTimeSlots first to get current valid UUIDs
 - For approving schedules, ALWAYS call getPendingSchedules first to get current schedule IDs
 - NEVER make up or modify UUIDs - always use exact IDs from function responses
+- If the user is an admin, they can book for other employees and their bookings are auto-approved
 
 COMMON BOOKING ERRORS:
 - "Schedule conflicts with an existing time slot" - The user already has a booking that overlaps
@@ -131,13 +142,21 @@ COMMON BOOKING ERRORS:
           parameters: {}
         },
         bookTimeSlot: {
-          description: "Book a time slot for the current user. MUST use an exact UUID from a previous getAvailableTimeSlots call.",
+          description: "Book a time slot for the current user or for another employee (admin only). MUST use an exact UUID from a previous getAvailableTimeSlots call.",
           parameters: {
             type: "object",
             properties: {
               slotId: {
                 type: "string",
                 description: "The exact UUID of the time slot to book, must be copied directly from getAvailableTimeSlots response. Do NOT modify or create UUIDs."
+              },
+              employeeId: {
+                type: "string",
+                description: "Optional (admin only): The UUID of the employee to book for. If provided, the booking will be made for this employee instead of the current user."
+              },
+              employeeName: {
+                type: "string",
+                description: "Optional (admin only): The name or email of the employee to book for. If provided, the system will look up the employee by name or email."
               },
               date: {
                 type: "string",
@@ -313,7 +332,7 @@ COMMON BOOKING ERRORS:
             // Execute the function if it exists
             if (tools[functionName]) {
               try {
-                const result = await tools[functionName](functionArgs);
+                const result = await tools[functionName](functionArgs, context);
                 
                 // Log the result
                 logAI({

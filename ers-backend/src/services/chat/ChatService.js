@@ -81,14 +81,20 @@ class ChatService {
       getAvailableTimeSlots: async () => {
         try {
           console.log(`[DEBUG-SLOTS] getAvailableTimeSlots called`);
-          // This implementation mirrors the handleSlots function
+          
+          // Get system settings to determine first day of week
+          const systemSettings = await SystemSettingsModel.getSettings();
+          const firstDayOfWeek = systemSettings.first_day_of_week;
+          console.log(`[DEBUG-SLOTS] First day of week from settings: ${firstDayOfWeek}`);
+          
           // Get the current date
           const today = new Date();
           
-          // Calculate the week start date (Sunday)
+          // Calculate the week start date based on system settings
           const dayOfWeek = today.getDay(); // 0 for Sunday, 1 for Monday, etc.
+          const adjustedDayOfWeek = (dayOfWeek - firstDayOfWeek + 7) % 7;
           const weekStartDate = new Date(today);
-          weekStartDate.setDate(today.getDate() - dayOfWeek);
+          weekStartDate.setDate(today.getDate() - adjustedDayOfWeek);
           
           // Format the date as YYYY-MM-DD
           const formattedDate = weekStartDate.toISOString().split('T')[0];
@@ -107,9 +113,9 @@ class ChatService {
           const availableSlots = [];
           
           for (const slot of allTimeSlots) {
-            // Get the date for this slot
+            // Get the date for this slot - adjust for first day of week
             const slotDate = new Date(weekStartDate);
-            slotDate.setDate(weekStartDate.getDate() + slot.day_of_week);
+            slotDate.setDate(weekStartDate.getDate() + ((slot.day_of_week - firstDayOfWeek + 7) % 7));
             const formattedSlotDate = slotDate.toISOString().split('T')[0];
             
             // Get current booking count and max employees limit
@@ -181,9 +187,14 @@ class ChatService {
             });
           }
           
-          // Sort by day of week
+          // Sort by day of week according to system settings
           availableSlots.sort((a, b) => {
-            const daysOrder = {'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 'Friday': 5, 'Saturday': 6};
+            const daysOrder = {};
+            for (let i = 0; i < 7; i++) {
+              const adjustedDay = (i + firstDayOfWeek) % 7;
+              const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][adjustedDay];
+              daysOrder[dayName] = i;
+            }
             return daysOrder[a.dayName] - daysOrder[b.dayName];
           });
           
@@ -196,357 +207,137 @@ class ChatService {
           return { error: 'Error fetching available slots' };
         }
       },
-      bookTimeSlot: async ({ slotId, date = null, notes = '' } = {}, context = {}) => {
+      bookTimeSlot: async ({ slotId, employeeId, employeeName, date = null, notes = '' } = {}, context = {}) => {
         try {
-          console.log(`[DEBUG-BOOKING] AI bookTimeSlot called with:
-            - slotId: ${slotId}
-            - date: ${date || 'not provided'}
-            - notes: ${notes || 'not provided'}
-            - context.user: ${JSON.stringify(context.user || {})}
-          `);
+          console.log(`[DEBUG-BOOKING] bookTimeSlot called with:`, {
+            slotId, employeeId, employeeName, date, notes, context: !!context
+          });
           
-          if (!slotId) {
-            console.log(`[DEBUG-BOOKING] Error: Slot ID is required`);
-            return { error: 'Slot ID is required' };
-          }
-          
+          // Verify the user is authenticated
           if (!context.user) {
-            console.log(`[DEBUG-BOOKING] Error: User information is required`);
-            return { error: 'User information is required' };
+            return { error: 'Authentication required' };
           }
           
-          console.log(`[DEBUG-BOOKING] Attempting to book slot with ID: ${slotId}`);
+          // Get system settings to determine first day of week
+          const systemSettings = await SystemSettingsModel.getSettings();
+          const firstDayOfWeek = systemSettings.first_day_of_week;
+          console.log(`[DEBUG-BOOKING] First day of week from settings: ${firstDayOfWeek}`);
           
-          // Get all time slots to find the one with the given ID
-          const allTimeSlots = await TimeSlotModel.getTimeSlots();
-          console.log(`[DEBUG-BOOKING] Retrieved ${allTimeSlots.length} time slots`);
+          // Get all employees for reference
+          const employees = await EmployeeModel.getAllEmployees();
           
-          // Try to find the slot by exact ID match first
-          let selectedSlot = allTimeSlots.find(slot => slot.id === slotId);
+          // Determine which employee to book for
+          let targetEmployee;
+          let isAdminBookingForOther = false;
           
-          if (selectedSlot) {
-            console.log(`[DEBUG-BOOKING] Found slot by exact ID match: ${JSON.stringify(selectedSlot)}`);
-          } else {
-            console.log(`[DEBUG-BOOKING] Exact ID match not found, trying alternative methods`);
-          }
-          
-          if (!selectedSlot && /^\d+$/.test(slotId)) {
-            // Get available slots in the same order as they would be displayed to the user
-            const availableSlots = [];
+          // If admin is booking for another employee
+          if (context.user.role === 'admin' && (employeeId || employeeName)) {
+            isAdminBookingForOther = true;
             
+            if (employeeId) {
+              // Find employee by ID
+              targetEmployee = employees.find(emp => emp.id === employeeId);
+            } else if (employeeName) {
+              // Find employee by name or email
+              targetEmployee = employees.find(emp => 
+                emp.name.toLowerCase() === employeeName.toLowerCase() || 
+                emp.email.toLowerCase() === employeeName.toLowerCase()
+              );
+            }
+            
+            if (!targetEmployee) {
+              return { 
+                error: `Employee ${employeeId || employeeName} not found. Please check the ID or name and try again.` 
+              };
+            }
+            
+            console.log(`[DEBUG-BOOKING] Admin booking for employee:`, targetEmployee.name);
+          } else {
+            // User is booking for themselves
+            targetEmployee = employees.find(emp => 
+              emp.user_id === context.user.id || 
+              emp.email === context.user.email
+            );
+            
+            if (!targetEmployee) {
+              return { error: 'You do not have an employee profile in the system' };
+            }
+          }
+          
+          // Get the time slot details
+          const timeSlot = await TimeSlotModel.getTimeSlotById(slotId);
+          if (!timeSlot) {
+            return { error: 'Invalid time slot ID' };
+          }
+          
+          // Calculate the date if not provided
+          let bookingDate = date;
+          if (!bookingDate) {
             // Get the current date
             const today = new Date();
             
-            // Get the system's first day of week setting (0 = Sunday, 1 = Monday, etc.)
-            const systemSettings = await SystemSettingsModel.getSettings();
-            const firstDayOfWeek = systemSettings?.first_day_of_week || 0; // Default to Sunday
-            
-            // Calculate the week start date based on the system setting
-            const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
-            let daysToSubtract;
-            
-            if (dayOfWeek >= firstDayOfWeek) {
-              daysToSubtract = dayOfWeek - firstDayOfWeek;
-            } else {
-              daysToSubtract = dayOfWeek + 7 - firstDayOfWeek;
-            }
-            
+            // Calculate the week start date based on system settings
+            const dayOfWeek = today.getDay(); // 0 for Sunday, 1 for Monday, etc.
+            const adjustedDayOfWeek = (dayOfWeek - firstDayOfWeek + 7) % 7;
             const weekStartDate = new Date(today);
-            weekStartDate.setDate(today.getDate() - daysToSubtract);
+            weekStartDate.setDate(today.getDate() - adjustedDayOfWeek);
             
-            console.log(`[DEBUG] AI calculated week start date: ${weekStartDate.toISOString().split('T')[0]}`);
+            // Add the day of week to get the target date, adjusted for first day of week
+            const targetDate = new Date(weekStartDate);
+            targetDate.setDate(weekStartDate.getDate() + ((timeSlot.day_of_week - firstDayOfWeek + 7) % 7));
             
-            // Process each slot to check if it's available and not in the past
-            for (const slot of allTimeSlots) {
-              const slotDate = new Date(weekStartDate);
-              slotDate.setDate(weekStartDate.getDate() + slot.day_of_week);
-              
-              const now = new Date();
-              let isPast = false;
-              
-              if (slotDate < now) {
-                isPast = true;
-              } else if (
-                slotDate.getFullYear() === now.getFullYear() && 
-                slotDate.getMonth() === now.getMonth() && 
-                slotDate.getDate() === now.getDate()
-              ) {
-                // If it's today, check the time
-                const startTime = slot.start_time.substring(0, 5);
-                const [hours, minutes] = startTime.split(':').map(Number);
-                const slotStartTime = new Date(slotDate);
-                slotStartTime.setHours(hours, minutes, 0, 0);
-                
-                if (now >= slotStartTime) {
-                  isPast = true;
-                }
-              }
-              
-              if (!isPast) {
-                // Add formatted date to the slot object
-                const formattedSlotDate = slotDate.toISOString().split('T')[0];
-                availableSlots.push({
-                  ...slot,
-                  calculatedDate: formattedSlotDate
-                });
-              }
-            }
-            
-            // Sort available slots by day of week
-            availableSlots.sort((a, b) => a.day_of_week - b.day_of_week);
-            
-            // Try to get the slot by index (1-based)
-            const index = parseInt(slotId) - 1;
-            if (index >= 0 && index < availableSlots.length) {
-              selectedSlot = availableSlots[index];
-              console.log(`[DEBUG] Found slot by index ${index}:`, selectedSlot.id);
-            }
+            // Format the date as YYYY-MM-DD
+            bookingDate = targetDate.toISOString().split('T')[0];
           }
           
-          if (!selectedSlot) {
-            // Try to find by day name if the slotId looks like a day name
-            const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-            const normalizedSlotId = slotId.toLowerCase();
-            const dayIndex = dayNames.findIndex(day => day.includes(normalizedSlotId));
-            
-            if (dayIndex !== -1) {
-              // Find slots for this day
-              const slotsForDay = allTimeSlots.filter(slot => slot.day_of_week === dayIndex);
-              
-              // Get the first available slot for this day
-              if (slotsForDay.length > 0) {
-                // Get the system's first day of week setting (0 = Sunday, 1 = Monday, etc.)
-                const systemSettings = await SystemSettingsModel.getSettings();
-                const firstDayOfWeek = systemSettings?.first_day_of_week || 0; // Default to Sunday
-                
-                const now = new Date();
-                const today = new Date();
-                const dayOfWeek = today.getDay();
-                
-                // Calculate the week start date based on the system setting
-                let daysToSubtract;
-                
-                if (dayOfWeek >= firstDayOfWeek) {
-                  daysToSubtract = dayOfWeek - firstDayOfWeek;
-                } else {
-                  daysToSubtract = dayOfWeek + 7 - firstDayOfWeek;
-                }
-                
-                const weekStartDate = new Date(today);
-                weekStartDate.setDate(today.getDate() - daysToSubtract);
-                
-                // Find the first non-past slot
-                for (const slot of slotsForDay) {
-                  const slotDate = new Date(weekStartDate);
-                  slotDate.setDate(weekStartDate.getDate() + slot.day_of_week);
-                  
-                  let isPast = false;
-                  
-                  if (slotDate < now) {
-                    isPast = true;
-                  } else if (
-                    slotDate.getFullYear() === now.getFullYear() && 
-                    slotDate.getMonth() === now.getMonth() && 
-                    slotDate.getDate() === now.getDate()
-                  ) {
-                    // If it's today, check the time
-                    const startTime = slot.start_time.substring(0, 5);
-                    const [hours, minutes] = startTime.split(':').map(Number);
-                    const slotStartTime = new Date(slotDate);
-                    slotStartTime.setHours(hours, minutes, 0, 0);
-                    
-                    if (now >= slotStartTime) {
-                      isPast = true;
-                    }
-                  }
-                  
-                  if (!isPast) {
-                    const formattedSlotDate = slotDate.toISOString().split('T')[0];
-                    selectedSlot = {
-                      ...slot,
-                      calculatedDate: formattedSlotDate
-                    };
-                    console.log(`[DEBUG] Found slot by day name ${dayNames[dayIndex]}:`, selectedSlot.id);
-                    break;
-                  }
-                }
-              }
-            }
+          // Determine if this booking should be auto-approved (admin bookings)
+          const status = context.user.role === 'admin' ? 'approved' : 'pending';
+          
+          // Create the schedule data
+          const scheduleData = {
+            employee_id: targetEmployee.id,
+            date: bookingDate,
+            start_time: timeSlot.start_time,
+            end_time: timeSlot.end_time,
+            status: status,
+            notes: notes || `Booked via EnvoyAI${isAdminBookingForOther ? ` (booked by admin ${context.user.name || context.user.email})` : ''}`,
+            requested_by: context.user.id || context.user.user_id,
+            time_slot_id: slotId
+          };
+          
+          // If admin is auto-approving, add approval info
+          if (status === 'approved') {
+            scheduleData.approved_by = context.user.id || context.user.user_id;
+            scheduleData.approval_date = new Date().toISOString();
           }
           
-          if (!selectedSlot) {
-            return { error: `Time slot with ID ${slotId} not found. Please use the exact ID from the available slots list.` };
-          }
-          
-          // Use the provided date or the calculated date from the slot
-          let formattedDate;
-          
-          try {
-            if (date) {
-              formattedDate = date;
-              console.log(`[DEBUG-BOOKING] Using provided date: ${formattedDate}`);
-            } else if (selectedSlot.calculatedDate) {
-              formattedDate = selectedSlot.calculatedDate;
-              console.log(`[DEBUG-BOOKING] Using calculatedDate from slot: ${formattedDate}`);
-            } else {
-              // Calculate the date based on the slot's day of week
-              console.log(`[DEBUG-BOOKING] Calculating date from day of week: ${selectedSlot.day_of_week}`);
-              
-              // Get the system's first day of week setting (0 = Sunday, 1 = Monday, etc.)
-              const systemSettings = await SystemSettingsModel.getSettings();
-              const firstDayOfWeek = systemSettings?.first_day_of_week || 0; // Default to Sunday
-              
-              // Calculate the week start date based on the system setting
-              const today = new Date();
-              const dayOfWeek = today.getDay();
-              let daysToSubtract;
-              
-              if (dayOfWeek >= firstDayOfWeek) {
-                daysToSubtract = dayOfWeek - firstDayOfWeek;
-              } else {
-                daysToSubtract = dayOfWeek + 7 - firstDayOfWeek;
-              }
-              
-              const weekStartDate = new Date(today);
-              weekStartDate.setDate(today.getDate() - daysToSubtract);
-              
-              // Calculate the date for this slot
-              const slotDate = new Date(weekStartDate);
-              slotDate.setDate(weekStartDate.getDate() + selectedSlot.day_of_week);
-              
-              // Format the date as YYYY-MM-DD
-              formattedDate = slotDate.toISOString().split('T')[0];
-              console.log(`[DEBUG-BOOKING] Calculated date: ${formattedDate}`);
-            }
-          } catch (dateError) {
-            console.error('[DEBUG-BOOKING] Error calculating date:', dateError);
-            return { 
-              error: 'Error calculating booking date',
-              suggestion: 'Please try again with a specific date or contact an administrator for assistance.'
-            };
-          }
-          
-          console.log(`[DEBUG-BOOKING] Final date to use: ${formattedDate}`);
-          
-          // Check if the slot is in the past
-          const slotDate = new Date(formattedDate);
-          const now = new Date();
-          if (slotDate < now) {
-            return { error: 'Cannot book a slot in the past' };
-          }
-          
-          // Get the user's employee record
-          const employees = await EmployeeModel.getAllEmployees();
-          const userEmployee = employees.find(emp => 
-            emp.user_id === context.user.id || 
-            emp.user_id === context.user.user_id || 
-            emp.email === context.user.email
-          );
-          
-          if (!userEmployee) {
-            return { error: 'You do not have an employee profile. Please contact an administrator.' };
-          }
-          
-          // Check for time conflicts using the proper conflict detection method
-          const hasConflict = await ScheduleModel.checkScheduleConflict(
-            userEmployee.id,
-            formattedDate,
-            selectedSlot.start_time,
-            selectedSlot.end_time
-          );
-          
-          if (hasConflict) {
-            // Get the conflicting schedule to show details
-            const userSchedules = await ScheduleModel.getSchedules({ 
-              employee_id: userEmployee.id,
-              date: formattedDate
-            });
-            
-            if (userSchedules && userSchedules.length > 0) {
-              const existingSchedule = userSchedules.find(schedule => 
-                // Check for actual time overlap
-                selectedSlot.start_time < schedule.end_time && 
-                selectedSlot.end_time > schedule.start_time
-              );
-              
-              if (existingSchedule) {
-                return { 
-                  error: `You already have a booking for ${formattedDate} from ${existingSchedule.start_time.substring(0, 5)} to ${existingSchedule.end_time.substring(0, 5)} that conflicts with this time slot. Please choose a non-overlapping time.`,
-                  existingBooking: {
-                    date: formattedDate,
-                    time: `${existingSchedule.start_time.substring(0, 5)} - ${existingSchedule.end_time.substring(0, 5)}`,
-                    status: existingSchedule.status
-                  }
-                };
-              }
-            }
-            
-            // Generic conflict message if we can't find the specific conflict
-            return { 
-              error: `You have a booking that conflicts with this time slot on ${formattedDate}.`,
-              suggestion: 'Please choose a different time slot.'
-            };
-          }
+          console.log(`[DEBUG-BOOKING] Final schedule data:`, scheduleData);
           
           // Submit the schedule request
-          const scheduleData = {
-            employee_id: userEmployee.id,
-            date: formattedDate,
-            start_time: selectedSlot.start_time,
-            end_time: selectedSlot.end_time,
-            status: 'pending',
-            notes: notes || `Booked via EnvoyAI for ${selectedSlot.name || selectedSlot.start_time}`,
-            requested_by: context.user.id || context.user.user_id,
-            time_slot_id: selectedSlot.id
-          };
-          
-          console.log(`[DEBUG-BOOKING] AI final schedule data:`, JSON.stringify(scheduleData, null, 2));
-          
           try {
-            console.log(`[DEBUG-BOOKING] Calling ScheduleModel.requestSchedule`);
             const schedule = await ScheduleModel.requestSchedule(scheduleData);
             
-            console.log(`[DEBUG-BOOKING] Schedule creation result:`, JSON.stringify(schedule, null, 2));
+            // Format the response
+            const employeeInfo = isAdminBookingForOther ? ` for ${targetEmployee.name}` : '';
+            const statusInfo = status === 'approved' ? 'auto-approved' : 'pending approval';
             
-            if (schedule) {
-              console.log(`[DEBUG-BOOKING] Booking successful, returning success response`);
-              return { 
-                success: true, 
-                message: 'Time slot booked successfully! Your booking is pending approval.',
-                details: {
-                  date: formattedDate,
-                  time: `${selectedSlot.start_time.substring(0, 5)} - ${selectedSlot.end_time.substring(0, 5)}`,
-                  name: selectedSlot.name || '',
-                  status: 'pending'
-                }
-              };
-            } else {
-              console.log(`[DEBUG-BOOKING] Schedule creation returned falsy value`);
-              return { error: 'Failed to book the time slot. Please try again later.' };
-            }
-          } catch (bookingError) {
-            console.error('[DEBUG-BOOKING] Error in booking process:', bookingError);
-            
-            // Check for specific error messages and provide user-friendly responses
-            if (bookingError.message && bookingError.message.includes('conflicts')) {
-              console.log(`[DEBUG-BOOKING] Conflict detected: ${bookingError.message}`);
-              return { 
-                error: `Scheduling conflict detected: You already have a booking that overlaps with this time slot on ${formattedDate}. Please check your existing schedules.`,
-                suggestion: 'Try booking a different time slot or time period.'
-              };
-            }
-            
-            return { 
-              error: bookingError.message || 'Error booking time slot',
-              suggestion: 'Please try again later or contact an administrator for assistance.'
+            return {
+              success: true,
+              message: `Successfully booked time slot${employeeInfo}. Status: ${statusInfo}`,
+              details: {
+                date: bookingDate,
+                time: `${timeSlot.start_time.substring(0, 5)} - ${timeSlot.end_time.substring(0, 5)}`,
+                employee: targetEmployee.name,
+                status: status
+              }
             };
+          } catch (error) {
+            console.error('[DEBUG-BOOKING] Error creating schedule:', error);
+            return { error: error.message || 'Failed to book the time slot' };
           }
         } catch (error) {
-          console.error('[DEBUG-BOOKING] Unexpected error in bookTimeSlot:', error);
-          return { 
-            error: error.message || 'Error booking time slot',
-            suggestion: 'Please try again later or contact an administrator for assistance.'
-          };
+          console.error('[DEBUG-BOOKING] Error in bookTimeSlot:', error);
+          return { error: 'An unexpected error occurred while booking the time slot' };
         }
       },
       approveSchedule: async ({ scheduleId } = {}, context = {}) => {
@@ -752,34 +543,31 @@ class ChatService {
    * Handle the help command
    */
   async handleHelp(args, user) {
-    const isAdmin = user.role === 'admin';
+    // Base commands available to all users
+    let availableCommands = [
+      '/help - Show available commands',
+      '/profile - View your profile information',
+      '/employees - View all employees',
+      '/departments - View all departments',
+      '/schedules - View your schedules',
+      '/slots - View available time slots for booking',
+      '/book <slot_number> - Book a time slot by number'
+    ];
     
-    // Define commands with descriptions
-    const allCommands = {
-      help: 'Show available commands',
-      profile: 'View your profile information',
-      employees: 'List all employees',
-      departments: 'List all departments',
-      schedules: 'View your upcoming schedules',
-      slots: 'View available slots for this week',
-      book: 'Book a slot by its number (format: /book [slot_number])',
-      deptemployees: 'View employees in a specific department',
-      request: 'Request time off (format: /request YYYY-MM-DD HH:MM HH:MM)',
-      // Admin only commands
-      pending: 'Show pending schedule requests (Admin only)',
-      approve: 'Approve pending requests by number (format: /approve [number1,number2,...] or /approve all)',
-      reject: 'Reject pending requests by number (format: /reject [number1,number2,...] reason or /reject all reason)',
-      users: 'List all users (Admin only)',
-      stats: 'Show system statistics (Admin only)'
-    };
-
-    // Filter commands based on user role
-    const filteredCommands = Object.entries(allCommands)
-      .filter(([cmd]) => isAdmin || !['pending', 'approve', 'reject', 'users', 'stats'].includes(cmd))
-      .map(([cmd, desc]) => `/${cmd} - ${desc}`)
-      .join('\n');
-
-    return `Available commands:\n${filteredCommands}`;
+    // Admin-only commands
+    if (user.role === 'admin') {
+      availableCommands = availableCommands.concat([
+        '/pending - View pending schedule requests (admin only)',
+        '/users - View all users (admin only)',
+        '/stats - View system statistics (admin only)',
+        '/deptemployees <dept_name> - View employees by department (admin only)',
+        '/approve <request_id> - Approve a schedule request (admin only)',
+        '/reject <request_id> [reason] - Reject a schedule request (admin only)',
+        '/book <slot_number> "<employee_name>" - Book a slot for another employee (admin only, auto-approved)'
+      ]);
+    }
+    
+    return `Available commands:\n${availableCommands.join('\n')}`;
   }
 
   /**
@@ -1297,13 +1085,19 @@ ${dept.employees.length > 0
    */
   async handleSlots(args, user) {
     try {
+      // Get system settings to determine first day of week
+      const systemSettings = await SystemSettingsModel.getSettings();
+      const firstDayOfWeek = systemSettings.first_day_of_week;
+      console.log(`[DEBUG-SLOTS] First day of week from settings: ${firstDayOfWeek}`);
+      
       // Get the current date
       const today = new Date();
       
-      // Calculate the week start date (Sunday)
+      // Calculate the week start date based on system settings
       const dayOfWeek = today.getDay(); // 0 for Sunday, 1 for Monday, etc.
+      const adjustedDayOfWeek = (dayOfWeek - firstDayOfWeek + 7) % 7;
       const weekStartDate = new Date(today);
-      weekStartDate.setDate(today.getDate() - dayOfWeek);
+      weekStartDate.setDate(today.getDate() - adjustedDayOfWeek);
       
       // Format the date as YYYY-MM-DD
       const formattedDate = weekStartDate.toISOString().split('T')[0];
@@ -1319,9 +1113,9 @@ ${dept.employees.length > 0
       const availableSlots = [];
       
       for (const slot of allTimeSlots) {
-        // Get availability for this slot
+        // Get availability for this slot - adjust for first day of week
         const slotDate = new Date(weekStartDate);
-        slotDate.setDate(weekStartDate.getDate() + slot.day_of_week);
+        slotDate.setDate(weekStartDate.getDate() + ((slot.day_of_week - firstDayOfWeek + 7) % 7));
         const formattedSlotDate = slotDate.toISOString().split('T')[0];
         
         // Check if the slot is available on this date
@@ -1401,8 +1195,16 @@ ${dept.employees.length > 0
         });
       }
       
-      // Sort by day of week
-      availableSlots.sort((a, b) => a.dayNumber - b.dayNumber);
+      // Sort by day of week according to system settings
+      availableSlots.sort((a, b) => {
+        // Create a mapping of day numbers to their display order
+        const daysOrder = {};
+        for (let i = 0; i < 7; i++) {
+          const adjustedDay = (i + firstDayOfWeek) % 7;
+          daysOrder[adjustedDay] = i;
+        }
+        return daysOrder[a.dayNumber] - daysOrder[b.dayNumber];
+      });
       
       // Cache the available slots for the book command
       this.cache.availableSlots = availableSlots;
@@ -1441,7 +1243,7 @@ ${dept.employees.length > 0
       
       // Check if args were provided
       if (!args || args.length < 1) {
-        return 'Please provide the slot number to book (e.g., /book 3)';
+        return 'Please provide the slot number to book (e.g., /book 3) or specify employee name for admin booking (e.g., /book 3 "John Doe")';
       }
       
       // Parse the slot number
@@ -1475,34 +1277,64 @@ ${dept.employees.length > 0
         return `Sorry, slot ${slotNumber} has no available spots.`;
       }
       
-      // First get the user's employee record
+      // Get all employees
       const employees = await EmployeeModel.getAllEmployees();
-      const userEmployee = employees.find(emp => 
-        emp.email === user.email
-      );
+      let targetEmployee;
       
-      if (!userEmployee) {
-        return 'You do not have an employee profile. Please contact an administrator.';
+      // Check if admin is booking for another employee
+      const isAdminBookingForOther = user.role === 'admin' && args.length > 1;
+      
+      if (isAdminBookingForOther) {
+        // Admin is booking for another employee
+        const employeeName = args.slice(1).join(' ').replace(/"/g, '').trim();
+        targetEmployee = employees.find(emp => 
+          emp.name.toLowerCase() === employeeName.toLowerCase() || 
+          emp.email.toLowerCase() === employeeName.toLowerCase()
+        );
+        
+        if (!targetEmployee) {
+          return `Employee "${employeeName}" not found. Please check the name and try again.`;
+        }
+        
+        console.log(`[DEBUG] Admin booking for employee:`, targetEmployee.name);
+      } else {
+        // User is booking for themselves
+        targetEmployee = employees.find(emp => emp.email === user.email);
+        
+        if (!targetEmployee) {
+          return 'You do not have an employee profile. Please contact an administrator.';
+        }
       }
+      
+      // Determine if this booking should be auto-approved (admin bookings)
+      const status = user.role === 'admin' ? 'approved' : 'pending';
       
       // Submit the schedule request
       const scheduleData = {
-        employee_id: userEmployee.id,
+        employee_id: targetEmployee.id,
         date: selectedSlot.rawDate,
         start_time: selectedSlot.startTime,
         end_time: selectedSlot.endTime,
-        status: 'pending',
-        notes: `Booked via EnvoyAI for ${selectedSlot.name || selectedSlot.time}`,
+        status: status,
+        notes: `Booked via EnvoyAI for ${selectedSlot.name || selectedSlot.time}${isAdminBookingForOther ? ` (booked by admin ${user.name || user.email})` : ''}`,
         requested_by: user.id || user.user_id,
         time_slot_id: selectedSlot.id
       };
+      
+      // If admin is auto-approving, add approval info
+      if (status === 'approved') {
+        scheduleData.approved_by = user.id || user.user_id;
+        scheduleData.approval_date = new Date().toISOString();
+      }
       
       console.log(`[DEBUG] Command final schedule data:`, JSON.stringify(scheduleData, null, 2));
       
       const schedule = await ScheduleModel.requestSchedule(scheduleData);
       
       if (schedule) {
-        return `Successfully booked slot ${slotNumber}: ${selectedSlot.dayName} (${selectedSlot.date}), ${selectedSlot.time}. Your booking is pending approval.`;
+        const employeeInfo = isAdminBookingForOther ? ` for ${targetEmployee.name}` : '';
+        const statusInfo = status === 'approved' ? ' The booking has been auto-approved.' : ' Your booking is pending approval.';
+        return `Successfully booked slot ${slotNumber}: ${selectedSlot.dayName} (${selectedSlot.date}), ${selectedSlot.time}${employeeInfo}.${statusInfo}`;
       } else {
         return 'Failed to book the slot. Please try again later.';
       }
