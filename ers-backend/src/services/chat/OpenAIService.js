@@ -91,6 +91,7 @@ IMPORTANT RULES:
 - For approving schedules, ALWAYS call getPendingSchedules first to get current schedule IDs
 - NEVER make up or modify UUIDs - always use exact IDs from function responses
 - If the user is an admin, they can book for other employees and their bookings are auto-approved
+- For admin users who ask about employees working on a specific date, use getEmployeesByDateAndTimeSlot function
 
 COMMON BOOKING ERRORS:
 - "Schedule conflicts with an existing time slot" - The user already has a booking that overlaps
@@ -136,6 +137,19 @@ COMMON BOOKING ERRORS:
         getPendingSchedules: {
           description: "Get all pending schedule requests (admin only function)",
           parameters: {}
+        },
+        getEmployeesByDateAndTimeSlot: {
+          description: "Get all employees scheduled for a specific date, organized by time slot (admin only function)",
+          parameters: {
+            type: "object",
+            properties: {
+              date: {
+                type: "string",
+                description: "The date to check in YYYY-MM-DD format (e.g., '2023-07-20'). If not provided, today's date will be used."
+              }
+            },
+            required: []
+          }
         },
         getAvailableTimeSlots: {
           description: "Get available time slots for scheduling this week. ALWAYS call this function BEFORE attempting to book any slot to get the current valid UUIDs.",

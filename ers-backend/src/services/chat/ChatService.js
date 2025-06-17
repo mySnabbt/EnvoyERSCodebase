@@ -423,6 +423,31 @@ class ChatService {
             suggestion: 'Please try again later or contact an administrator for assistance.'
           };
         }
+      },
+      getEmployeesByDateAndTimeSlot: async ({ date }, context = {}) => {
+        try {
+          // Admin access check
+          if (context.user?.role !== 'admin') {
+            return { error: 'This function is only available to administrators' };
+          }
+          
+          // If no date is provided, use today's date
+          if (!date) {
+            const today = new Date();
+            date = today.toISOString().split('T')[0]; // format as YYYY-MM-DD
+          }
+          
+          console.log(`[DEBUG-ROSTER] Getting employees for date: ${date}`);
+          
+          // Call the model function
+          const result = await ScheduleModel.getEmployeesByDateAndTimeSlot(date);
+          console.log(`[DEBUG-ROSTER] Found ${result.employee_count || 0} employees scheduled`);
+          
+          return result;
+        } catch (error) {
+          console.error('Error getting employees by date and time slot:', error);
+          return { error: 'Error retrieving employee roster data' };
+        }
       }
     };
   }

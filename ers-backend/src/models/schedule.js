@@ -353,6 +353,83 @@ const ScheduleModel = {
     
     if (error) throw error;
     return data[0];
+  },
+
+  // Get employees scheduled on a specific date, organized by time slot
+  async getEmployeesByDateAndTimeSlot(date) {
+    try {
+      // Step 1: Get all schedules for the specified date with employee and time slot info
+      const { data: schedules, error } = await supabase
+        .from(schedulesTable)
+        .select(`
+          *,
+          employee:employees(id, name, email, position, department_id),
+          time_slot:time_slots(id, name, start_time, end_time, day_of_week)
+        `)
+        .eq('date', date)
+        .eq('status', 'approved') // Only show approved schedules
+        .order('start_time', { ascending: true });
+      
+      if (error) throw error;
+      
+      if (!schedules || schedules.length === 0) {
+        return { message: 'No schedules found for this date' };
+      }
+      
+      // Step 2: Group by time slots
+      const timeSlotMap = {};
+      
+      // First gather all schedules by time slot
+      schedules.forEach(schedule => {
+        // Use either the time slot or the direct time values
+        const timeKey = schedule.time_slot_id 
+          ? `${schedule.time_slot?.start_time || schedule.start_time} - ${schedule.time_slot?.end_time || schedule.end_time}`
+          : `${schedule.start_time} - ${schedule.end_time}`;
+        
+        // Initialize the array for this time slot if it doesn't exist
+        if (!timeSlotMap[timeKey]) {
+          timeSlotMap[timeKey] = {
+            start_time: schedule.time_slot?.start_time || schedule.start_time,
+            end_time: schedule.time_slot?.end_time || schedule.end_time,
+            time_slot_name: schedule.time_slot?.name || '',
+            employees: []
+          };
+        }
+        
+        // Add the employee to this time slot
+        if (schedule.employee) {
+          timeSlotMap[timeKey].employees.push({
+            id: schedule.employee.id,
+            name: schedule.employee.name,
+            email: schedule.employee.email,
+            position: schedule.employee.position,
+            department_id: schedule.employee.department_id
+          });
+        }
+      });
+      
+      // Convert the map to an array and sort by start time
+      const result = Object.entries(timeSlotMap).map(([timeKey, data]) => ({
+        time_range: timeKey,
+        ...data
+      }));
+      
+      // Sort by start time
+      result.sort((a, b) => {
+        if (a.start_time < b.start_time) return -1;
+        if (a.start_time > b.start_time) return 1;
+        return 0;
+      });
+      
+      return {
+        date,
+        employee_count: schedules.length,
+        time_slots: result
+      };
+    } catch (err) {
+      console.error('Error getting employees by date and time slot:', err);
+      throw err;
+    }
   }
 };
 
