@@ -9,6 +9,8 @@ import Footer from './components/layout/Footer';
 // Auth components
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
+import ForgotPassword from './components/auth/ForgotPassword';
+import ResetPassword from './components/auth/ResetPassword';
 
 // Dashboard components
 import Dashboard from './components/dashboard/Dashboard';
@@ -94,6 +96,8 @@ const AppContent = () => {
             {/* Public routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password/:token" element={<ResetPassword />} />
             
             {/* Protected routes */}
             <Route path="/dashboard" element={

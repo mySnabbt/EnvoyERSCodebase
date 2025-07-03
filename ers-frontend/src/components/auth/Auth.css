@@ -104,4 +104,40 @@ input:focus {
 
 .auth-links a:hover {
   text-decoration: underline;
+}
+
+.forgot-password-link {
+  text-align: right;
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+.forgot-password-link a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.forgot-password-link a:hover {
+  text-decoration: underline;
+}
+
+.alert {
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+.alert-success {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.alert-danger {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.mt-2 {
+  margin-top: 8px;
 } 

@@ -1,4 +1,6 @@
 const UserModel = require('../models/user');
+const PasswordResetModel = require('../models/passwordReset');
+const EmailService = require('../services/EmailService');
 
 const AuthController = {
   async register(req, res) {
@@ -201,6 +203,112 @@ const AuthController = {
       });
     } catch (error) {
       console.error('Update user role error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+  },
+  
+  async forgotPassword(req, res) {
+    try {
+      const { email } = req.body;
+      
+      console.log('Forgot password request received for email:', email);
+      
+      if (!email) {
+        console.log('Email is required but not provided');
+        return res.status(400).json({
+          success: false,
+          message: 'Email is required'
+        });
+      }
+      
+      // Find user by email
+      console.log('Looking up user by email...');
+      const user = await UserModel.getUserByEmail(email);
+      
+      // Don't reveal if user exists or not for security reasons
+      if (!user) {
+        console.log('User not found with email:', email);
+        return res.status(200).json({
+          success: true,
+          message: 'If your email is registered, you will receive password reset instructions'
+        });
+      }
+      
+      console.log('User found, generating reset token...');
+      
+      // Generate reset token
+      const token = await PasswordResetModel.createResetToken(user.id);
+      
+      // Create reset link
+      const resetLink = `${process.env.FRONTEND_URL}/reset-password/${token}`;
+      console.log('Reset link generated:', resetLink);
+      
+      // Send email
+      console.log('Sending password reset email...');
+      await EmailService.sendPasswordResetEmail(email, resetLink);
+      
+      console.log('Password reset email sent successfully');
+      return res.status(200).json({
+        success: true,
+        message: 'If your email is registered, you will receive password reset instructions'
+      });
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+  },
+  
+  async resetPassword(req, res) {
+    try {
+      const { token, password } = req.body;
+      
+      console.log('Reset password request received:');
+      console.log('- Token provided:', token ? `${token.substring(0, 10)}...` : 'none');
+      console.log('- Password length:', password ? password.length : 0);
+      
+      if (!token || !password) {
+        console.log('Validation failed: Missing token or password');
+        return res.status(400).json({
+          success: false,
+          message: 'Token and password are required'
+        });
+      }
+      
+      // Validate token
+      console.log('Validating token...');
+      const tokenData = await PasswordResetModel.validateToken(token);
+      
+      if (!tokenData) {
+        console.log('Token validation failed: Invalid or expired token');
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid or expired token'
+        });
+      }
+      
+      console.log('Token validated successfully. User ID:', tokenData.user_id);
+      
+      // Update user password
+      console.log('Updating user password...');
+      await UserModel.updatePassword(tokenData.user_id, password);
+      
+      // Mark token as used
+      console.log('Marking token as used...');
+      await PasswordResetModel.markTokenAsUsed(tokenData.id);
+      
+      console.log('Password reset successful');
+      return res.status(200).json({
+        success: true,
+        message: 'Password has been reset successfully'
+      });
+    } catch (error) {
+      console.error('Reset password error:', error);
       return res.status(500).json({
         success: false,
         message: 'Server error'

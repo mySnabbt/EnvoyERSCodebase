@@ -108,6 +108,24 @@ const UserModel = {
     return data;
   },
   
+  async getUserByEmail(email) {
+    const { data, error } = await supabase
+      .from(usersTable)
+      .select('id, name, first_name, last_name, email, phone, role, created_at')
+      .eq('email', email)
+      .single();
+      
+    if (error) {
+      // If no user found, don't throw an error
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      throw error;
+    }
+    
+    return data;
+  },
+  
   async getAllUsers() {
     const { data, error } = await supabase
       .from(usersTable)
@@ -159,6 +177,23 @@ const UserModel = {
     const { data, error } = await supabase
       .from(usersTable)
       .update({ role: newRole })
+      .eq('id', userId)
+      .select();
+      
+    if (error) throw error;
+    
+    return data[0];
+  },
+  
+  async updatePassword(userId, newPassword) {
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    
+    // Update user password
+    const { data, error } = await supabase
+      .from(usersTable)
+      .update({ password: hashedPassword })
       .eq('id', userId)
       .select();
       

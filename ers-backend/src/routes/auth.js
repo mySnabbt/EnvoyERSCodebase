@@ -13,6 +13,16 @@ router.post('/register', AuthController.register);
 // @access  Public
 router.post('/login', AuthController.login);
 
+// @route   POST /api/auth/forgot-password
+// @desc    Request password reset
+// @access  Public
+router.post('/forgot-password', AuthController.forgotPassword);
+
+// @route   POST /api/auth/reset-password
+// @desc    Reset password with token
+// @access  Public
+router.post('/reset-password', AuthController.resetPassword);
+
 // @route   GET /api/auth/me
 // @desc    Get current user
 // @access  Private

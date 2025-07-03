@@ -65,6 +65,9 @@ const Login = () => {
               onChange={handleChange}
               required
             />
+            <div className="forgot-password-link">
+              <Link to="/forgot-password">Forgot password?</Link>
+            </div>
           </div>
           
           <button 
