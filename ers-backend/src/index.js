@@ -17,9 +17,16 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? process.env.FRONTEND_URL 
-    : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: process.env.NODE_ENV === 'production'
+  ? process.env.FRONTEND_URL
+  : [
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      'http://localhost:8081',
+      'http://10.126.170.76:8081',
+      'http://10.126.170.76:5000/api/auth/login',
+    ],
+
   credentials: true
 }));
 app.use(express.json());
@@ -58,6 +65,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0' , () => {
+  console.log(`Server running on port ${PORT} and listening on 0.0.0.0`);
 }); 

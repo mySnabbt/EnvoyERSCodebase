@@ -69,8 +69,15 @@ const AuthController = {
       // Authenticate user
       const authData = await UserModel.login(email, password);
       
+      const jwt = require('jsonwebtoken');
+      const token = jwt.sign(
+        { userId: authData.id, email: authData.email, role: authData.role },
+        { expiresIn: '7d' }
+      );
+
       return res.status(200).json({
         success: true,
+        token, // Add token for mobile
         data: authData
       });
     } catch (error) {
