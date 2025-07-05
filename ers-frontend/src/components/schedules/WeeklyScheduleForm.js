@@ -369,6 +369,7 @@ const WeeklyScheduleForm = () => {
       const response = await axios.post('/time-slots/batch-availability', {
         date: todayStr,
         timeSlotIds
+
       });
       
       // -------- ADD THIS BLOCK: Manual request to bypass any framework issues ---------
