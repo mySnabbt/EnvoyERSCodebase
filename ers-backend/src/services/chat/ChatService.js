@@ -1427,7 +1427,7 @@ ${dept.employees.length > 0
       
       return true;
     } catch (error) {
-      console.error('Error clearing chat history:', error);
+      console.error('Error clearing chathistory:', error);
       return false;
     }
   }
