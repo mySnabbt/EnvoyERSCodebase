@@ -387,7 +387,7 @@ const WeeklyScheduleForm = () => {
         })
       });
       console.log('Direct fetch response status:', testResponse.status);
-      // ---------------------------------------------------------------------------
+      // --------------------------------------------------------------------------
       
       console.log('Response received:', response.status);
       console.log('Response data:', response.data);
