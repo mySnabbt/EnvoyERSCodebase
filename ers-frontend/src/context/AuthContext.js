@@ -22,7 +22,7 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   // Configure axios defaults
-  axios.defaults.baseURL = 'http://localhost:5000/api';
+  axios.defaults.baseURL = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api`;
   
   // Debug authentication state
   useEffect(() => {

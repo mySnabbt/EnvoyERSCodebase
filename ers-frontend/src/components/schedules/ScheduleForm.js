@@ -7,7 +7,7 @@ import './Schedules.css';
 
 // Create an axios instance with the correct base URL
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api`,
   headers: {
     'Content-Type': 'application/json',
   }
@@ -262,7 +262,7 @@ const ScheduleForm = () => {
       timeSlotIds: timeSlotIds
     };
     
-    fetch('http://localhost:5000/api/time-slots/batch-availability', {
+    fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/time-slots/batch-availability`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -320,7 +320,7 @@ const ScheduleForm = () => {
     console.log('Fetching time slots using fetch API');
     
     // Use fetch API directly as a test
-    fetch('http://localhost:5000/api/time-slots', {
+    fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/time-slots`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -452,7 +452,7 @@ const ScheduleForm = () => {
         console.log('Using token to fetch employee record:', token.substring(0, 10) + '...');
   
         // Fetch the employee record for the current user with better error handling
-        const response = await fetch('http://localhost:5000/api/employees/me', {
+        const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/employees/me`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -501,7 +501,7 @@ const ScheduleForm = () => {
           return;
         }
         
-        const response = await fetch('http://localhost:5000/api/employees', {
+        const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/employees`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -599,7 +599,7 @@ const ScheduleForm = () => {
       
       console.log('Submitting schedule request with data:', requestData);
       
-      const response = await fetch('http://localhost:5000/api/schedules/weekly', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/schedules/weekly`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

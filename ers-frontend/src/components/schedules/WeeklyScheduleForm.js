@@ -375,7 +375,7 @@ const WeeklyScheduleForm = () => {
       // -------- ADD THIS BLOCK: Manual request to bypass any framework issues ---------
       console.log('SENDING DIRECT FETCH REQUEST INSTEAD OF AXIOS AS A TEST');
       const token = localStorage.getItem('token');
-      const testResponse = await fetch('http://localhost:5000/api/time-slots/batch-availability', {
+      const testResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/time-slots/batch-availability`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -729,7 +729,7 @@ const WeeklyScheduleForm = () => {
       
       // Make direct fetch request instead of using axios
       console.log('Sending request to /schedules/weekly endpoint with today\'s date');
-      const response = await fetch('http://localhost:5000/api/schedules/weekly', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/schedules/weekly`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

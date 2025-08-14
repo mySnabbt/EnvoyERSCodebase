@@ -26,7 +26,7 @@ const Timesheet = () => {
   useEffect(() => {
     const fetchSystemSettings = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/settings', {
+        const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/settings`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -106,7 +106,7 @@ const Timesheet = () => {
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/departments', {
+        const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/departments`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -132,7 +132,7 @@ const Timesheet = () => {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/employees', {
+        const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/employees`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -166,7 +166,7 @@ const Timesheet = () => {
         const startDateStr = dateRange.start.toISOString().split('T')[0];
         const endDateStr = dateRange.end.toISOString().split('T')[0];
         
-        let url = `http://localhost:5000/api/roster/date-range?startDate=${startDateStr}&endDate=${endDateStr}`;
+        let url = `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}/api/roster/date-range?startDate=${startDateStr}&endDate=${endDateStr}`;
         
         if (selectedDepartment !== 'all') {
           url += `&departmentId=${selectedDepartment}`;
