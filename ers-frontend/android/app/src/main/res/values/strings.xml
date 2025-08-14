@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">EnvoyERS</string>
+    <string name="title_activity_main">EnvoyERS</string>
+    <string name="package_name">com.envoyai.ers</string>
+    <string name="custom_url_scheme">com.envoyai.ers</string>
+</resources>
