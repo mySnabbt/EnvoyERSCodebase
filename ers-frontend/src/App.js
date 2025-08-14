@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, AuthContext } from './context/AuthContext';
 
 // Layout components
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
+import MobileHeader from './components/layout/MobileHeader';
+import Sidebar from './components/layout/Sidebar';
+import BottomNavigation from './components/layout/BottomNavigation';
 
 // Auth components
 import Login from './components/auth/Login';
@@ -88,145 +91,163 @@ function App() {
 
 // App content with access to AuthContext
 const AppContent = () => {
+  const { currentUser } = React.useContext(AuthContext);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const handleMenuClick = () => {
+    setSidebarOpen(true);
+  };
+
+  const handleSidebarClose = () => {
+    setSidebarOpen(false);
+  };
+  
   return (
-      <div className="app">
-        <Header />
-        <main className="main-content">
-          <Routes>
-            {/* Public routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password/:token" element={<ResetPassword />} />
-            
-            {/* Protected routes */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/employees" element={
-              <ProtectedRoute>
-                <EmployeeList />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/employees/:id" element={
-              <ProtectedRoute>
-                <EmployeeDetail />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/employees/new" element={
-              <ProtectedRoute requireAdmin={true}>
-                <EmployeeForm />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/employees/edit/:id" element={
-              <ProtectedRoute requireAdmin={true}>
-                <EmployeeForm />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/departments" element={
-              <ProtectedRoute>
-                <DepartmentList />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/departments/new" element={
-              <ProtectedRoute requireAdmin={true}>
-                <DepartmentForm />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/departments/edit/:id" element={
-              <ProtectedRoute requireAdmin={true}>
-                <DepartmentForm />
-              </ProtectedRoute>
-            } />
-            
-            {/* Schedule routes */}
-            <Route path="/schedules" element={
-              <ProtectedRoute>
-                <SchedulesList />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/schedules/new" element={
-              <ProtectedRoute>
-                <ScheduleForm />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/schedules/:id" element={
-              <ProtectedRoute>
-                <ScheduleDetail />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/schedules/edit/:id" element={
-              <ProtectedRoute>
-                <ScheduleForm />
-              </ProtectedRoute>
-            } />
-            
-            {/* Time Slot routes */}
-            <Route path="/time-slots" element={
-              <ProtectedRoute requireAdmin={true}>
-                <TimeSlotsManagement />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/time-slots/new" element={
-              <ProtectedRoute requireAdmin={true}>
-                <TimeSlotForm />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/time-slots/:id/edit" element={
-              <ProtectedRoute requireAdmin={true}>
-                <TimeSlotForm />
-              </ProtectedRoute>
-            } />
-            
-            {/* Admin Panel route */}
-            <Route path="/admin" element={
-              <ProtectedRoute requireAdmin={true}>
-                <AdminPanel />
-              </ProtectedRoute>
-            } />
-            
-            {/* Route for System Settings */}
-            <Route path="/admin/settings" element={
-              <ProtectedRoute requireAdmin={true}>
-                <SystemSettings />
-              </ProtectedRoute>
-            } />
-            
-            {/* Timesheet route */}
-            <Route path="/timesheets" element={
-              <ProtectedRoute>
-                <Timesheet />
-              </ProtectedRoute>
-            } />
-            
-            {/* EnvoyAI route */}
-            <Route path="/envoyai" element={
-              <ProtectedRoute>
-                <EnvoyAI />
-              </ProtectedRoute>
-            } />
-            
-            {/* Default route */}
-            <Route path="/" element={<Navigate to="/login" />} />
-            <Route path="*" element={<Navigate to="/login" />} />
-          </Routes>
-        </main>
-        <Footer />
-      </div>
+    <div className="app">
+      {/* Desktop Header - only show on desktop and when authenticated */}
+      {currentUser && <Header />}
+      
+      {/* Mobile Header - only show on mobile and when authenticated */}
+      {currentUser && <MobileHeader onMenuClick={handleMenuClick} />}
+      
+      {/* Mobile Sidebar - only show on mobile and when authenticated */}
+      {currentUser && <Sidebar isOpen={sidebarOpen} onClose={handleSidebarClose} />}
+      
+      <main className={`main-content ${currentUser ? 'with-navigation' : ''}`}>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
+          
+          {/* Protected routes */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/employees" element={
+            <ProtectedRoute>
+              <EmployeeList />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/employees/:id" element={
+            <ProtectedRoute>
+              <EmployeeDetail />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/employees/new" element={
+            <ProtectedRoute requireAdmin={true}>
+              <EmployeeForm />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/employees/edit/:id" element={
+            <ProtectedRoute requireAdmin={true}>
+              <EmployeeForm />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/departments" element={
+            <ProtectedRoute>
+              <DepartmentList />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/departments/new" element={
+            <ProtectedRoute requireAdmin={true}>
+              <DepartmentForm />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/departments/edit/:id" element={
+            <ProtectedRoute requireAdmin={true}>
+              <DepartmentForm />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/schedules" element={
+            <ProtectedRoute>
+              <SchedulesList />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/schedules/new" element={
+            <ProtectedRoute>
+              <ScheduleForm />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/schedules/:id" element={
+            <ProtectedRoute>
+              <ScheduleDetail />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/schedules/edit/:id" element={
+            <ProtectedRoute>
+              <ScheduleForm />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/time-slots" element={
+            <ProtectedRoute requireAdmin={true}>
+              <TimeSlotsManagement />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/time-slots/new" element={
+            <ProtectedRoute requireAdmin={true}>
+              <TimeSlotForm />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/time-slots/edit/:id" element={
+            <ProtectedRoute requireAdmin={true}>
+              <TimeSlotForm />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/admin" element={
+            <ProtectedRoute requireAdmin={true}>
+              <AdminPanel />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/admin/settings" element={
+            <ProtectedRoute requireAdmin={true}>
+              <SystemSettings />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/timesheets" element={
+            <ProtectedRoute>
+              <Timesheet />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/envoyai" element={
+            <ProtectedRoute>
+              <EnvoyAI />
+            </ProtectedRoute>
+          } />
+          
+          {/* Default route */}
+          <Route path="/" element={<Navigate to="/login" />} />
+          <Route path="*" element={<Navigate to="/login" />} />
+        </Routes>
+      </main>
+      
+      {/* Desktop Footer - only show on desktop and when authenticated */}
+      {currentUser && <Footer />}
+      
+      {/* Mobile Bottom Navigation - only show on mobile and when authenticated */}
+      {currentUser && <BottomNavigation />}
+    </div>
   );
 };
 

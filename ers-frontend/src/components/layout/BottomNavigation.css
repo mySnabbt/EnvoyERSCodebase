@@ -1,0 +1,128 @@
+/* Bottom Navigation Styles */
+.bottom-navigation {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+  border-top: 1px solid #e9ecef;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  backdrop-filter: blur(10px);
+}
+
+.bottom-nav-container {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 0.5rem 1rem 1rem;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.75rem;
+  text-decoration: none;
+  color: #6c757d;
+  transition: all 0.3s ease;
+  border-radius: 12px;
+  min-width: 60px;
+  position: relative;
+}
+
+.bottom-nav-item:hover {
+  color: #495057;
+  transform: translateY(-2px);
+}
+
+.bottom-nav-item.active {
+  color: #3498db;
+  background: rgba(52, 152, 219, 0.1);
+}
+
+.bottom-nav-item.active::before {
+  content: '';
+  position: absolute;
+  top: -0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 4px;
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  border-radius: 2px;
+}
+
+.bottom-nav-icon {
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+  transition: all 0.3s ease;
+}
+
+.bottom-nav-item.active .bottom-nav-icon {
+  transform: scale(1.1);
+}
+
+.bottom-nav-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1;
+}
+
+/* Special styling for AI tab */
+.bottom-nav-item[href="/envoyai"] {
+  background: linear-gradient(135deg, #6e8efb, #a777e3);
+  color: white;
+  box-shadow: 0 4px 15px rgba(110, 142, 251, 0.3);
+}
+
+.bottom-nav-item[href="/envoyai"]:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 20px rgba(110, 142, 251, 0.4);
+}
+
+.bottom-nav-item[href="/envoyai"].active {
+  background: linear-gradient(135deg, #5d7df7, #9566d9);
+  color: white;
+}
+
+.bottom-nav-item[href="/envoyai"].active::before {
+  background: white;
+}
+
+/* Responsive adjustments */
+@media (min-width: 769px) {
+  .bottom-navigation {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .bottom-nav-container {
+    padding: 0.5rem 0.5rem 1rem;
+  }
+  
+  .bottom-nav-item {
+    min-width: 50px;
+    padding: 0.4rem 0.5rem;
+  }
+  
+  .bottom-nav-icon {
+    font-size: 1.4rem;
+  }
+  
+  .bottom-nav-label {
+    font-size: 0.7rem;
+  }
+}
+
+/* Safe area for devices with notches */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .bottom-navigation {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+} 

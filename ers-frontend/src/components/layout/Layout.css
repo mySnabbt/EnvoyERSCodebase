@@ -1,4 +1,4 @@
-/* Header Styles */
+/* Header Styles - Desktop Only */
 .main-header {
   background-color: #2c3e50;
   color: white;
@@ -90,7 +90,7 @@
   background-color: #c0392b;
 }
 
-/* Footer Styles */
+/* Footer Styles - Desktop Only */
 .main-footer {
   background-color: #2c3e50;
   color: white;
@@ -107,7 +107,23 @@
   padding: 0 15px;
 }
 
-/* Responsive adjustments */
+/* Hide Header and Footer on mobile devices */
+@media (max-width: 768px) {
+  .main-header,
+  .main-footer {
+    display: none !important;
+  }
+}
+
+/* Desktop responsive adjustments */
+@media (min-width: 769px) {
+  .main-header,
+  .main-footer {
+    display: block;
+  }
+}
+
+/* Responsive adjustments for desktop header */
 @media (max-width: 768px) {
   .header-container {
     flex-direction: column;
