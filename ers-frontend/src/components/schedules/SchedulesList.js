@@ -141,9 +141,16 @@ const SchedulesList = () => {
     <div className="schedules-container">
       <div className="schedules-header">
         <h1>Schedules</h1>
-        <Link to="/schedules/new" className="new-schedule-button">
-          Request New Schedule
-        </Link>
+        <div className="header-buttons">
+          <Link to="/schedules/new" className="new-schedule-button">
+            Request New Schedule
+          </Link>
+          {isAdmin && (
+            <Link to="/schedules/bulk" className="bulk-schedule-button">
+              Bulk Schedule Creation
+            </Link>
+          )}
+        </div>
       </div>
       
       <div className="filter-section">

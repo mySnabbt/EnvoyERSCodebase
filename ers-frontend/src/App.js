@@ -31,6 +31,7 @@ import DepartmentForm from './components/departments/DepartmentForm';
 import SchedulesList from './components/schedules/SchedulesList';
 import ScheduleForm from './components/schedules/ScheduleForm';
 import ScheduleDetail from './components/schedules/ScheduleDetail';
+import BulkScheduleForm from './components/schedules/BulkScheduleForm';
 
 // Time Slot components
 import TimeSlotsManagement from './components/timeSlots/TimeSlotsManagement';
@@ -179,6 +180,12 @@ const AppContent = () => {
           <Route path="/schedules/new" element={
             <ProtectedRoute>
               <ScheduleForm />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/schedules/bulk" element={
+            <ProtectedRoute requireAdmin={true}>
+              <BulkScheduleForm />
             </ProtectedRoute>
           } />
           

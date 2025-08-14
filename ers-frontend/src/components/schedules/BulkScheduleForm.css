@@ -1,0 +1,351 @@
+/* Bulk Schedule Form Styles */
+.bulk-schedule-container {
+  overflow-x: auto;
+  margin: 20px 0;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: white;
+}
+
+.bulk-schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1000px;
+}
+
+.bulk-schedule-table th,
+.bulk-schedule-table td {
+  border: 1px solid #e0e0e0;
+  padding: 12px;
+  vertical-align: top;
+}
+
+.bulk-schedule-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  text-align: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.bulk-schedule-table thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 11;
+  background-color: #f8f9fa;
+}
+
+.employee-cell {
+  background-color: #f9f9f9;
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  min-width: 200px;
+  max-width: 200px;
+}
+
+.employee-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.employee-name {
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.employee-details {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.3;
+}
+
+.timeslot-cell {
+  width: 150px;
+  min-width: 150px;
+  padding: 8px;
+}
+
+.timeslot-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.timeslot-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  font-size: 12px;
+}
+
+.timeslot-checkbox:hover {
+  background-color: #f0f8ff;
+}
+
+.timeslot-checkbox input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.timeslot-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #333;
+}
+
+.timeslot-checkbox input[type="checkbox"]:checked + .timeslot-label {
+  color: #2196F3;
+  font-weight: 500;
+}
+
+.no-slots {
+  color: #999;
+  font-style: italic;
+  font-size: 12px;
+  text-align: center;
+  padding: 10px 0;
+}
+
+.selected-count {
+  margin-top: 8px;
+  padding: 4px 8px;
+  background-color: #e3f2fd;
+  color: #1976d2;
+  border-radius: 12px;
+  font-size: 11px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.bulk-form-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 15px;
+}
+
+.bulk-form-info p {
+  margin: 0;
+  color: #666;
+}
+
+.clear-btn {
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.clear-btn:hover {
+  background: #d32f2f;
+}
+
+.clear-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* Form sections styling */
+.form-section {
+  margin-bottom: 30px;
+  padding: 20px;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.form-section h3 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.form-group textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.form-group textarea:focus {
+  outline: none;
+  border-color: #2196F3;
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+}
+
+/* Form actions */
+.form-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: flex-end;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.cancel-btn,
+.submit-btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-btn {
+  background: #f5f5f5;
+  color: #666;
+  border: 1px solid #ddd;
+}
+
+.cancel-btn:hover {
+  background: #ebebeb;
+  color: #333;
+}
+
+.submit-btn {
+  background: #2196F3;
+  color: white;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: #1976D2;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.3);
+}
+
+.submit-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Success and error messages */
+.success-message {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+
+.error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+
+/* Loading state */
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+  font-size: 16px;
+}
+
+/* Form header */
+.form-header {
+  text-align: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #2196F3;
+}
+
+.form-header h2 {
+  margin: 0 0 10px 0;
+  color: #333;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.form-header p {
+  margin: 0;
+  color: #666;
+  font-size: 16px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .bulk-schedule-container {
+    font-size: 12px;
+  }
+  
+  .employee-cell {
+    min-width: 150px;
+    max-width: 150px;
+  }
+  
+  .employee-name {
+    font-size: 13px;
+  }
+  
+  .employee-details {
+    font-size: 11px;
+  }
+  
+  .timeslot-cell {
+    width: 120px;
+    min-width: 120px;
+  }
+  
+  .timeslot-checkbox {
+    font-size: 11px;
+  }
+  
+  .bulk-schedule-table th,
+  .bulk-schedule-table td {
+    padding: 8px;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .cancel-btn,
+  .submit-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .bulk-form-info {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  
+  .form-header h2 {
+    font-size: 24px;
+  }
+  
+  .form-header p {
+    font-size: 14px;
+  }
+} 

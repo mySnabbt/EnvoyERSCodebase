@@ -1960,3 +1960,52 @@ td.time-slot-cell.selected .slot-selector {
   border: 1px solid #ffeeba;
   border-radius: 4px;
 } 
+
+.header-buttons {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.bulk-schedule-button {
+  display: inline-block;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #9c27b0, #673ab7);
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(156, 39, 176, 0.2);
+}
+
+.bulk-schedule-button:hover {
+  background: linear-gradient(135deg, #8e24aa, #5e35b1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(156, 39, 176, 0.3);
+  color: white;
+  text-decoration: none;
+}
+
+.bulk-schedule-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(156, 39, 176, 0.2);
+}
+
+/* Responsive design for header buttons */
+@media (max-width: 768px) {
+  .header-buttons {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+  }
+  
+  .new-schedule-button,
+  .bulk-schedule-button {
+    text-align: center;
+    width: 100%;
+  }
+} 
