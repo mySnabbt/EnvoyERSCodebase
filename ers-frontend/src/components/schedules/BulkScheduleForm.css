@@ -439,6 +439,26 @@
   border-color: #007bff;
 }
 
+.form-check.already-booked {
+  background: #f8f9fa;
+  border-color: #dc3545;
+}
+
+.form-check.already-booked:hover {
+  background: #f8f9fa;
+  border-color: #dc3545;
+}
+
+.form-check.marked-for-cancellation {
+  background: #ffe6e6;
+  border-color: #ff6b6b;
+}
+
+.form-check.marked-for-cancellation:hover {
+  background: #ffd6d6;
+  border-color: #ff5252;
+}
+
 .form-check-input {
   margin: 0 0.75rem 0 0;
   cursor: pointer;
@@ -465,6 +485,26 @@
 .timeslot-time {
   font-size: 0.875rem;
   color: #6c757d;
+}
+
+.booked-badge {
+  background: #dc3545;
+  color: white;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  margin-left: 0.5rem;
+  font-weight: 500;
+}
+
+.cancel-badge {
+  background: #ff6b6b;
+  color: white;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  margin-left: 0.5rem;
+  font-weight: 500;
 }
 
 .modal-footer {

@@ -18,9 +18,12 @@ const BulkScheduleForm = () => {
   const [systemSettings, setSystemSettings] = useState({ first_day_of_week: 1 });
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [currentDate] = useState(new Date());
+  const [existingBookings, setExistingBookings] = useState({});
   
   // Schedule selections: { employeeId: { dayIndex: [timeSlotIds] } }
   const [scheduleSelections, setScheduleSelections] = useState({});
+  // Track bookings to be canceled: { employeeId: { dayIndex: [timeSlotIds] } }
+  const [bookingsToCancel, setBookingsToCancel] = useState({});
   const [notes, setNotes] = useState('');
   
   // Modal state for time slot selection
@@ -46,7 +49,7 @@ const BulkScheduleForm = () => {
     fetchSystemSettings();
   }, []);
 
-  // Fetch employees and time slots
+  // Fetch employees, time slots, and existing bookings
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -65,6 +68,8 @@ const BulkScheduleForm = () => {
           const timeSlotData = timeSlotsResponse.data.data || [];
           setTimeSlots(timeSlotData);
         }
+        
+        // Note: fetchExistingBookings will be called separately when weekDates are ready
         
         setLoading(false);
       } catch (err) {
@@ -139,36 +144,92 @@ const BulkScheduleForm = () => {
     return slotsByDay;
   }, [timeSlots, getOrderedDays]);
 
+  // Fetch existing bookings when week dates are ready
+  useEffect(() => {
+    if (weekDates.length > 0 && employees.length > 0) {
+      fetchExistingBookings();
+    }
+  }, [weekDates, employees]);
+
   // Handle time slot selection for an employee on a specific day
   const handleTimeSlotSelection = (employeeId, dayIndex, timeSlotId, isSelected) => {
-    setScheduleSelections(prev => {
-      const newSelections = { ...prev };
-      
-      if (!newSelections[employeeId]) {
-        newSelections[employeeId] = {};
-      }
-      
-      if (!newSelections[employeeId][dayIndex]) {
-        newSelections[employeeId][dayIndex] = [];
-      }
-      
-      if (isSelected) {
-        // Add time slot if not already selected
-        if (!newSelections[employeeId][dayIndex].includes(timeSlotId)) {
-          newSelections[employeeId][dayIndex] = [...newSelections[employeeId][dayIndex], timeSlotId];
-        }
+    const isAlreadyBooked = isTimeSlotAlreadyBooked(employeeId, dayIndex, timeSlotId);
+    
+    if (isSelected) {
+      // If checking a time slot
+      if (isAlreadyBooked) {
+        // If it's already booked and we're checking it, remove it from cancellations
+        setBookingsToCancel(prev => {
+          const newCancellations = { ...prev };
+          if (newCancellations[employeeId]?.[dayIndex]) {
+            newCancellations[employeeId][dayIndex] = newCancellations[employeeId][dayIndex].filter(id => id !== timeSlotId);
+          }
+          return newCancellations;
+        });
       } else {
-        // Remove time slot
-        newSelections[employeeId][dayIndex] = newSelections[employeeId][dayIndex].filter(id => id !== timeSlotId);
+        // If it's not already booked, add it to new selections
+        setScheduleSelections(prev => {
+          const newSelections = { ...prev };
+          if (!newSelections[employeeId]) {
+            newSelections[employeeId] = {};
+          }
+          if (!newSelections[employeeId][dayIndex]) {
+            newSelections[employeeId][dayIndex] = [];
+          }
+          if (!newSelections[employeeId][dayIndex].includes(timeSlotId)) {
+            newSelections[employeeId][dayIndex] = [...newSelections[employeeId][dayIndex], timeSlotId];
+          }
+          return newSelections;
+        });
       }
-      
-      return newSelections;
-    });
+    } else {
+      // If unchecking a time slot
+      if (isAlreadyBooked) {
+        // If it's already booked and we're unchecking it, add it to cancellations
+        setBookingsToCancel(prev => {
+          const newCancellations = { ...prev };
+          if (!newCancellations[employeeId]) {
+            newCancellations[employeeId] = {};
+          }
+          if (!newCancellations[employeeId][dayIndex]) {
+            newCancellations[employeeId][dayIndex] = [];
+          }
+          if (!newCancellations[employeeId][dayIndex].includes(timeSlotId)) {
+            newCancellations[employeeId][dayIndex] = [...newCancellations[employeeId][dayIndex], timeSlotId];
+          }
+          return newCancellations;
+        });
+      } else {
+        // If it's not already booked, remove it from new selections
+        setScheduleSelections(prev => {
+          const newSelections = { ...prev };
+          if (newSelections[employeeId]?.[dayIndex]) {
+            newSelections[employeeId][dayIndex] = newSelections[employeeId][dayIndex].filter(id => id !== timeSlotId);
+          }
+          return newSelections;
+        });
+      }
+    }
   };
 
-  // Check if a time slot is selected for an employee on a day
+  // Check if a time slot is selected for an employee on a day (including existing bookings)
   const isTimeSlotSelected = (employeeId, dayIndex, timeSlotId) => {
-    return scheduleSelections[employeeId]?.[dayIndex]?.includes(timeSlotId) || false;
+    // Check if it's in current selections
+    const isSelected = scheduleSelections[employeeId]?.[dayIndex]?.includes(timeSlotId) || false;
+    
+    // Check if it's already booked in the database
+    const isAlreadyBooked = existingBookings[employeeId]?.[dayIndex]?.includes(timeSlotId) || false;
+    
+    // Check if it's marked for cancellation
+    const isMarkedForCancellation = bookingsToCancel[employeeId]?.[dayIndex]?.includes(timeSlotId) || false;
+    
+    // Return true if it's selected OR (already booked AND not marked for cancellation)
+    return isSelected || (isAlreadyBooked && !isMarkedForCancellation);
+  };
+
+  // Check if a time slot is already booked in the database (not just selected)
+  const isTimeSlotAlreadyBooked = (employeeId, dayIndex, timeSlotId) => {
+    return existingBookings[employeeId]?.[dayIndex]?.includes(timeSlotId) || false;
   };
 
   // Open time slot selection modal
@@ -189,6 +250,56 @@ const BulkScheduleForm = () => {
   const closeTimeSlotModal = () => {
     setShowTimeSlotModal(false);
     setModalContext({ employeeId: null, dayIndex: null, employeeName: '', dayName: '' });
+  };
+
+  // Store full booking data for cancellation
+  const [existingBookingsData, setExistingBookingsData] = useState([]);
+
+  // Fetch existing bookings for the current week
+  const fetchExistingBookings = async () => {
+    try {
+      if (weekDates.length === 0) return;
+      
+      const weekStart = weekDates[0].toISOString().split('T')[0];
+      const weekEnd = weekDates[6].toISOString().split('T')[0];
+      
+      const response = await axios.get(`/schedules?start_date=${weekStart}&end_date=${weekEnd}`);
+      
+      if (response.data?.success) {
+        const bookings = response.data.data || [];
+        const bookingMap = {};
+        
+        // Store full booking data for cancellation
+        setExistingBookingsData(bookings);
+        
+        bookings.forEach(booking => {
+          const employeeId = booking.employee_id;
+          const timeSlotId = booking.time_slot_id;
+          
+          if (!bookingMap[employeeId]) {
+            bookingMap[employeeId] = {};
+          }
+          
+          // Find which day this booking belongs to
+          const bookingDate = new Date(booking.date);
+          const dayIndex = weekDates.findIndex(date => 
+            date.toDateString() === bookingDate.toDateString()
+          );
+          
+          if (dayIndex !== -1) {
+            if (!bookingMap[employeeId][dayIndex]) {
+              bookingMap[employeeId][dayIndex] = [];
+            }
+            bookingMap[employeeId][dayIndex].push(timeSlotId);
+          }
+        });
+        
+        setExistingBookings(bookingMap);
+      }
+    } catch (err) {
+      console.error('Error fetching existing bookings:', err);
+      // Don't show error to user, just log it
+    }
   };
 
   // Get selected time slots for an employee on a day
@@ -212,49 +323,80 @@ const BulkScheduleForm = () => {
       
       const scheduleRequests = [];
       
-      // Build schedule requests
+      // Build schedule requests (only for new bookings, not existing ones)
       Object.entries(scheduleSelections).forEach(([employeeId, employeeDays]) => {
         Object.entries(employeeDays).forEach(([dayIndex, timeSlotIds]) => {
           if (timeSlotIds.length > 0) {
             timeSlotIds.forEach(timeSlotId => {
-              const date = weekDates[parseInt(dayIndex)];
-              const timeSlot = timeSlots.find(ts => ts.id === timeSlotId);
-              
-              if (timeSlot && date) {
-                scheduleRequests.push({
-                  employee_id: employeeId,
-                  date: date.toISOString().split('T')[0],
-                  time_slot_id: timeSlotId,
-                  start_time: timeSlot.start_time,
-                  end_time: timeSlot.end_time,
-                  notes: notes || 'Bulk schedule creation',
-                  status: 'pending'
-                });
+              // Only add to schedule requests if it's not already booked
+              if (!isTimeSlotAlreadyBooked(employeeId, parseInt(dayIndex), timeSlotId)) {
+                const date = weekDates[parseInt(dayIndex)];
+                const timeSlot = timeSlots.find(ts => ts.id === timeSlotId);
+                
+                if (timeSlot && date) {
+                  scheduleRequests.push({
+                    employee_id: employeeId,
+                    date: date.toISOString().split('T')[0],
+                    time_slot_id: timeSlotId,
+                    start_time: timeSlot.start_time,
+                    end_time: timeSlot.end_time,
+                    notes: notes || 'Bulk schedule creation',
+                    status: 'pending'
+                  });
+                }
               }
             });
           }
         });
       });
       
+      // Handle cancellations
+      const cancellationPromises = [];
+      Object.entries(bookingsToCancel).forEach(([employeeId, employeeDays]) => {
+        Object.entries(employeeDays).forEach(([dayIndex, timeSlotIds]) => {
+          if (timeSlotIds.length > 0) {
+            timeSlotIds.forEach(timeSlotId => {
+              // Find the existing booking to cancel
+              const bookingToCancel = existingBookingsData.find(booking => 
+                booking.employee_id === employeeId && 
+                booking.time_slot_id === timeSlotId &&
+                new Date(booking.date).toDateString() === weekDates[parseInt(dayIndex)].toDateString()
+              );
+              
+              if (bookingToCancel) {
+                cancellationPromises.push(
+                  axios.delete(`/schedules/${bookingToCancel.id}`)
+                );
+              }
+            });
+          }
+        });
+      });
+
       console.log('Submitting schedule requests:', scheduleRequests);
+      console.log('Cancelling bookings:', cancellationPromises.length);
       
-      // Submit all schedule requests
-      const promises = scheduleRequests.map(request => 
+      // Submit all requests (both new bookings and cancellations)
+      const newBookingPromises = scheduleRequests.map(request => 
         axios.post('/schedules', request)
       );
       
-      const responses = await Promise.all(promises);
+      const allPromises = [...newBookingPromises, ...cancellationPromises];
+      const responses = await Promise.all(allPromises);
       
-      const successCount = responses.filter(response => response.data?.success).length;
+      const successCount = responses.filter(response => response.data?.success || response.status === 200).length;
       const errorCount = responses.length - successCount;
       
       if (errorCount === 0) {
-        setSuccess(`Successfully created ${successCount} schedule requests!`);
+        setSuccess(`Successfully processed ${newBookingPromises.length} new bookings and ${cancellationPromises.length} cancellations!`);
         // Clear selections after successful submission
         setScheduleSelections({});
+        setBookingsToCancel({});
         setNotes('');
+        // Refresh existing bookings
+        await fetchExistingBookings();
       } else {
-        setError(`Created ${successCount} schedules, but ${errorCount} failed. Please check for conflicts.`);
+        setError(`Processed ${successCount} requests, but ${errorCount} failed. Please check for conflicts.`);
       }
       
       setLoading(false);
@@ -268,6 +410,7 @@ const BulkScheduleForm = () => {
   // Clear all selections
   const clearAllSelections = () => {
     setScheduleSelections({});
+    setBookingsToCancel({});
   };
 
   // Get total number of selected slots
@@ -424,32 +567,40 @@ const BulkScheduleForm = () => {
             </div>
             
             <div className="modal-body">
-              {timeSlotsByDay[modalContext.dayIndex]?.map(timeSlot => (
-                <div key={timeSlot.id} className="timeslot-option">
-                  <label className="form-check">
-                    <input
-                      type="checkbox"
-                      className="form-check-input"
-                      checked={isTimeSlotSelected(modalContext.employeeId, modalContext.dayIndex, timeSlot.id)}
-                      onChange={(e) => handleTimeSlotSelection(
-                        modalContext.employeeId, 
-                        modalContext.dayIndex, 
-                        timeSlot.id, 
-                        e.target.checked
-                      )}
-                    />
-                    <div className="timeslot-info">
-                      <div className="timeslot-name">
-                        <FaClock className="time-icon" />
-                        {timeSlot.name || 'Time Slot'}
+              {timeSlotsByDay[modalContext.dayIndex]?.map(timeSlot => {
+                const isAlreadyBooked = isTimeSlotAlreadyBooked(modalContext.employeeId, modalContext.dayIndex, timeSlot.id);
+                const isSelected = isTimeSlotSelected(modalContext.employeeId, modalContext.dayIndex, timeSlot.id);
+                const isMarkedForCancellation = bookingsToCancel[modalContext.employeeId]?.[modalContext.dayIndex]?.includes(timeSlot.id) || false;
+                
+                return (
+                  <div key={timeSlot.id} className="timeslot-option">
+                    <label className={`form-check ${isAlreadyBooked ? 'already-booked' : ''} ${isMarkedForCancellation ? 'marked-for-cancellation' : ''}`}>
+                      <input
+                        type="checkbox"
+                        className="form-check-input"
+                        checked={isSelected}
+                        onChange={(e) => handleTimeSlotSelection(
+                          modalContext.employeeId, 
+                          modalContext.dayIndex, 
+                          timeSlot.id, 
+                          e.target.checked
+                        )}
+                      />
+                      <div className="timeslot-info">
+                        <div className="timeslot-name">
+                          <FaClock className="time-icon" />
+                          {timeSlot.name || 'Time Slot'}
+                          {isAlreadyBooked && !isMarkedForCancellation && <span className="booked-badge">Already Booked</span>}
+                          {isMarkedForCancellation && <span className="cancel-badge">Will Cancel</span>}
+                        </div>
+                        <div className="timeslot-time">
+                          {timeSlot.start_time?.substring(0,5)} - {timeSlot.end_time?.substring(0,5)}
+                        </div>
                       </div>
-                      <div className="timeslot-time">
-                        {timeSlot.start_time?.substring(0,5)} - {timeSlot.end_time?.substring(0,5)}
-                      </div>
-                    </div>
-                  </label>
-                </div>
-              ))}
+                    </label>
+                  </div>
+                );
+              })}
             </div>
             
             <div className="modal-footer">
