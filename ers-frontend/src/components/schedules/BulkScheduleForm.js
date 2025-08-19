@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
+import { FaPlus, FaCheck, FaTimes, FaClock } from 'react-icons/fa';
 import './BulkScheduleForm.css';
 
 const BulkScheduleForm = () => {
@@ -21,6 +22,10 @@ const BulkScheduleForm = () => {
   // Schedule selections: { employeeId: { dayIndex: [timeSlotIds] } }
   const [scheduleSelections, setScheduleSelections] = useState({});
   const [notes, setNotes] = useState('');
+  
+  // Modal state for time slot selection
+  const [showTimeSlotModal, setShowTimeSlotModal] = useState(false);
+  const [modalContext, setModalContext] = useState({ employeeId: null, dayIndex: null, employeeName: '', dayName: '' });
 
   // Fetch system settings
   useEffect(() => {
@@ -57,7 +62,8 @@ const BulkScheduleForm = () => {
         }
         
         if (timeSlotsResponse.data?.success) {
-          setTimeSlots(timeSlotsResponse.data.data || []);
+          const timeSlotData = timeSlotsResponse.data.data || [];
+          setTimeSlots(timeSlotData);
         }
         
         setLoading(false);
@@ -126,7 +132,8 @@ const BulkScheduleForm = () => {
     const slotsByDay = {};
     
     getOrderedDays.forEach((day, index) => {
-      slotsByDay[index] = timeSlots.filter(slot => slot.day_of_week === day.value);
+      const slotsForDay = timeSlots.filter(slot => slot.day_of_week === day.value);
+      slotsByDay[index] = slotsForDay;
     });
     
     return slotsByDay;
@@ -162,6 +169,26 @@ const BulkScheduleForm = () => {
   // Check if a time slot is selected for an employee on a day
   const isTimeSlotSelected = (employeeId, dayIndex, timeSlotId) => {
     return scheduleSelections[employeeId]?.[dayIndex]?.includes(timeSlotId) || false;
+  };
+
+  // Open time slot selection modal
+  const openTimeSlotModal = (employeeId, dayIndex) => {
+    const employee = employees.find(emp => emp.id === employeeId);
+    const day = getOrderedDays[dayIndex];
+    
+    setModalContext({
+      employeeId,
+      dayIndex,
+      employeeName: employee?.name || 'Unknown Employee',
+      dayName: day?.displayName || 'Unknown Day'
+    });
+    setShowTimeSlotModal(true);
+  };
+
+  // Close time slot selection modal
+  const closeTimeSlotModal = () => {
+    setShowTimeSlotModal(false);
+    setModalContext({ employeeId: null, dayIndex: null, employeeName: '', dayName: '' });
   };
 
   // Get selected time slots for an employee on a day
@@ -316,33 +343,33 @@ const BulkScheduleForm = () => {
                     </td>
                     {getOrderedDays.map((day, dayIndex) => (
                       <td key={dayIndex} className="timeslot-cell">
-                        <div className="timeslot-selection">
-                          {timeSlotsByDay[dayIndex]?.map(timeSlot => (
-                            <label key={timeSlot.id} className="timeslot-checkbox">
-                              <input
-                                type="checkbox"
-                                checked={isTimeSlotSelected(employee.id, dayIndex, timeSlot.id)}
-                                onChange={(e) => handleTimeSlotSelection(
-                                  employee.id, 
-                                  dayIndex, 
-                                  timeSlot.id, 
-                                  e.target.checked
-                                )}
-                              />
-                              <span className="timeslot-label">
-                                {timeSlot.name || `${timeSlot.start_time} - ${timeSlot.end_time}`}
-                              </span>
-                            </label>
-                          ))}
-                          {timeSlotsByDay[dayIndex]?.length === 0 && (
-                            <span className="no-slots">No slots available</span>
-                          )}
-                        </div>
-                        {getSelectedTimeSlots(employee.id, dayIndex).length > 0 && (
-                          <div className="selected-count">
-                            {getSelectedTimeSlots(employee.id, dayIndex).length} selected
-                          </div>
-                        )}
+                        {(() => {
+                          const availableSlots = timeSlotsByDay[dayIndex] || [];
+                          const selectedSlots = getSelectedTimeSlots(employee.id, dayIndex);
+                          const hasSlots = availableSlots.length > 0;
+                          
+                          return (
+                            <div 
+                              className={`timeslot-cell-content ${hasSlots ? 'clickable' : 'no-slots'} ${selectedSlots.length > 0 ? 'has-selections' : ''}`}
+                              onClick={() => hasSlots && openTimeSlotModal(employee.id, dayIndex)}
+                              title={hasSlots ? `${availableSlots.length} slots available${selectedSlots.length > 0 ? `, ${selectedSlots.length} selected` : ''}` : 'No time slots available'}
+                            >
+                              {!hasSlots ? (
+                                <FaTimes className="slot-icon disabled" />
+                              ) : selectedSlots.length > 0 ? (
+                                <div className="slot-icon-container">
+                                  <FaCheck className="slot-icon selected" />
+                                  <span className="slot-count">{selectedSlots.length}</span>
+                                </div>
+                              ) : (
+                                <div className="slot-icon-container">
+                                  <FaPlus className="slot-icon available" />
+                                  <span className="slot-count">{availableSlots.length}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                     ))}
                   </tr>
@@ -383,6 +410,59 @@ const BulkScheduleForm = () => {
           </button>
         </div>
       </form>
+
+      {/* Time Slot Selection Modal */}
+      {showTimeSlotModal && (
+        <div className="modal-overlay" onClick={closeTimeSlotModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h4>Time Slots</h4>
+              <span className="modal-subtitle">
+                {modalContext.employeeName} • {modalContext.dayName}
+              </span>
+              <button className="btn-close" onClick={closeTimeSlotModal}>×</button>
+            </div>
+            
+            <div className="modal-body">
+              {timeSlotsByDay[modalContext.dayIndex]?.map(timeSlot => (
+                <div key={timeSlot.id} className="timeslot-option">
+                  <label className="form-check">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={isTimeSlotSelected(modalContext.employeeId, modalContext.dayIndex, timeSlot.id)}
+                      onChange={(e) => handleTimeSlotSelection(
+                        modalContext.employeeId, 
+                        modalContext.dayIndex, 
+                        timeSlot.id, 
+                        e.target.checked
+                      )}
+                    />
+                    <div className="timeslot-info">
+                      <div className="timeslot-name">
+                        <FaClock className="time-icon" />
+                        {timeSlot.name || 'Time Slot'}
+                      </div>
+                      <div className="timeslot-time">
+                        {timeSlot.start_time?.substring(0,5)} - {timeSlot.end_time?.substring(0,5)}
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              ))}
+            </div>
+            
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={closeTimeSlotModal}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={closeTimeSlotModal}>
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
