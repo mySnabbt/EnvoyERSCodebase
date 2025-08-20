@@ -1,0 +1,531 @@
+/* Roster Container */
+.roster-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #f8f9fa;
+  min-height: 100vh;
+}
+
+/* Header */
+.roster-header {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  gap: 20px;
+}
+
+.roster-header h1 {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.bulk-schedule-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 12px;
+  border-radius: 5px;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  background: #9c27b0;
+  color: white;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.bulk-schedule-btn:hover {
+  background: #7b1fa2;
+  color: white;
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+
+/* Week Navigation */
+.week-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 15px;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.nav-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.nav-btn:hover {
+  background: #0056b3;
+  transform: scale(1.05);
+}
+
+.nav-btn:active {
+  transform: scale(0.95);
+}
+
+.week-info {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 250px;
+}
+
+.current-week {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.current-week-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 15px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  align-self: center;
+}
+
+.current-week-btn:hover {
+  background: #218838;
+  transform: translateY(-1px);
+}
+
+.roster-stats {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 12px;
+  background: #e3f2fd;
+  color: #1976d2;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Grid Container */
+.roster-grid-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.roster-grid {
+  display: grid;
+  grid-template-columns: 200px repeat(7, 1fr);
+  min-width: 800px;
+}
+
+/* Header Row */
+.roster-header-row {
+  display: contents;
+}
+
+.employee-header {
+  background: #34495e;
+  color: white;
+  padding: 15px;
+  font-weight: 600;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid #2c3e50;
+}
+
+.day-header {
+  background: #34495e;
+  color: white;
+  padding: 10px;
+  text-align: center;
+  border-right: 1px solid #2c3e50;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 60px;
+}
+
+.day-header:last-child {
+  border-right: none;
+}
+
+.day-name {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.day-date {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+/* Employee Rows */
+.roster-row {
+  display: contents;
+}
+
+.roster-row:nth-child(even) .employee-cell,
+.roster-row:nth-child(even) .day-cell {
+  background: #f8f9fa;
+}
+
+.employee-cell {
+  padding: 15px;
+  border-right: 1px solid #dee2e6;
+  border-bottom: 1px solid #dee2e6;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 80px;
+}
+
+.employee-name {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.employee-title {
+  font-size: 12px;
+  color: #7f8c8d;
+  font-style: italic;
+}
+
+.day-cell {
+  padding: 8px;
+  border-right: 1px solid #dee2e6;
+  border-bottom: 1px solid #dee2e6;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.day-cell:last-child {
+  border-right: none;
+}
+
+/* Shift Display */
+.no-shift {
+  color: #bdc3c7;
+  font-size: 18px;
+  font-weight: 300;
+}
+
+.shifts {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shift-block {
+  background: #e8f5e8;
+  border: 1px solid #4caf50;
+  border-radius: 4px;
+  padding: 6px 8px;
+  text-align: center;
+  position: relative;
+}
+
+.shift-time {
+  font-size: 11px;
+  font-weight: 600;
+  color: #2e7d32;
+  line-height: 1.2;
+}
+
+.shift-name {
+  font-size: 10px;
+  color: #4caf50;
+  margin-top: 2px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Multiple shifts in one day */
+.shifts .shift-block:nth-child(2) {
+  background: #fff3e0;
+  border-color: #ff9800;
+}
+
+.shifts .shift-block:nth-child(2) .shift-time {
+  color: #ef6c00;
+}
+
+.shifts .shift-block:nth-child(2) .shift-name {
+  color: #ff9800;
+}
+
+.shifts .shift-block:nth-child(3) {
+  background: #fce4ec;
+  border-color: #e91e63;
+}
+
+.shifts .shift-block:nth-child(3) .shift-time {
+  color: #c2185b;
+}
+
+.shifts .shift-block:nth-child(3) .shift-name {
+  color: #e91e63;
+}
+
+/* Error and Loading States */
+.error-message {
+  background: #ffebee;
+  color: #c62828;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid #ef5350;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-size: 18px;
+  color: #7f8c8d;
+}
+
+.no-data-message,
+.no-schedules-message {
+  text-align: center;
+  padding: 40px;
+  color: #7f8c8d;
+  background: white;
+  border-radius: 8px;
+  margin-top: 20px;
+}
+
+.no-data-message p,
+.no-schedules-message p {
+  margin: 0;
+  font-size: 16px;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .roster-grid {
+    grid-template-columns: 180px repeat(7, 1fr);
+  }
+  
+  .employee-header,
+  .employee-cell {
+    padding: 12px;
+  }
+  
+  .day-header {
+    padding: 8px;
+  }
+}
+
+@media (max-width: 992px) {
+  .roster-container {
+    padding: 15px;
+  }
+  
+  .roster-grid {
+    grid-template-columns: 160px repeat(7, 1fr);
+  }
+  
+  .roster-header h1 {
+    font-size: 24px;
+  }
+  
+  .roster-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .shift-time {
+    font-size: 10px;
+  }
+  
+  .shift-name {
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-top {
+    gap: 15px;
+  }
+  
+  .roster-header h1 {
+    font-size: 20px;
+    gap: 6px;
+  }
+  
+  .bulk-schedule-btn {
+    font-size: 11px;
+    padding: 6px 10px;
+    gap: 4px;
+  }
+  
+  .week-navigation {
+    padding: 8px;
+    gap: 12px;
+  }
+  
+  .nav-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+  
+  .week-info {
+    min-width: 200px;
+  }
+  
+  .current-week {
+    font-size: 13px;
+  }
+  
+  .current-week-btn {
+    font-size: 10px;
+    padding: 3px 8px;
+  }
+  
+  .roster-grid-container {
+    overflow-x: auto;
+  }
+  
+  .roster-grid {
+    grid-template-columns: 140px repeat(7, 120px);
+    min-width: 980px;
+  }
+  
+  .day-cell {
+    padding: 6px;
+    min-height: 70px;
+  }
+  
+  .employee-cell {
+    min-height: 70px;
+    padding: 10px;
+  }
+  
+  .employee-name {
+    font-size: 13px;
+  }
+  
+  .employee-title {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .roster-container {
+    padding: 10px;
+  }
+  
+  .roster-header {
+    padding: 15px;
+  }
+  
+  .header-top {
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+  }
+  
+  .roster-header h1 {
+    font-size: 18px;
+    text-align: center;
+  }
+  
+  .bulk-schedule-btn {
+    font-size: 10px;
+    padding: 6px 8px;
+    gap: 3px;
+  }
+  
+  .week-navigation {
+    padding: 6px;
+    gap: 8px;
+  }
+  
+  .nav-btn {
+    width: 26px;
+    height: 26px;
+    font-size: 10px;
+  }
+  
+  .week-info {
+    min-width: 180px;
+  }
+  
+  .current-week {
+    font-size: 12px;
+  }
+  
+  .current-week-btn {
+    font-size: 9px;
+    padding: 3px 6px;
+  }
+  
+  .roster-stats {
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+  
+  .stat {
+    font-size: 13px;
+    padding: 6px 10px;
+    justify-content: center;
+  }
+}

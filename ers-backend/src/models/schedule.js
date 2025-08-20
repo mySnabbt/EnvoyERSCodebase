@@ -10,7 +10,8 @@ const ScheduleModel = {
       .select(`
         *,
         employee:employees(id, name, email, phone, position, 
-          user:user_id(id, name, first_name, last_name, email))
+          user:user_id(id, name, first_name, last_name, email)),
+        time_slot:time_slots(id, name, start_time, end_time, day_of_week)
       `);
     
     // Apply filters if provided

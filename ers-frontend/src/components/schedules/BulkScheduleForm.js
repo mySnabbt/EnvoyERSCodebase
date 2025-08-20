@@ -320,8 +320,12 @@ const BulkScheduleForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (Object.keys(scheduleSelections).length === 0) {
-      setError('Please select at least one time slot for any employee');
+    // Check if there are any operations to perform (new bookings or cancellations)
+    const hasNewBookings = Object.keys(scheduleSelections).length > 0;
+    const hasCancellations = Object.keys(bookingsToCancel).length > 0;
+    
+    if (!hasNewBookings && !hasCancellations) {
+      setError('Please select at least one time slot to book or cancel');
       return;
     }
     
@@ -424,7 +428,7 @@ const BulkScheduleForm = () => {
     setBookingsToCancel({});
   };
 
-  // Get total number of selected slots
+  // Get total number of selected slots (new bookings only)
   const getTotalSelections = () => {
     let total = 0;
     Object.values(scheduleSelections).forEach(employeeDays => {
@@ -433,6 +437,22 @@ const BulkScheduleForm = () => {
       });
     });
     return total;
+  };
+
+  // Get total number of cancellations
+  const getTotalCancellations = () => {
+    let total = 0;
+    Object.values(bookingsToCancel).forEach(employeeDays => {
+      Object.values(employeeDays).forEach(timeSlotIds => {
+        total += timeSlotIds.length;
+      });
+    });
+    return total;
+  };
+
+  // Get total number of operations (new bookings + cancellations)
+  const getTotalOperations = () => {
+    return getTotalSelections() + getTotalCancellations();
   };
 
   if (loading && employees.length === 0) {
@@ -469,7 +489,11 @@ const BulkScheduleForm = () => {
         <div className="form-section">
           <h3>Week of: {weekDates[0]?.toLocaleDateString()} - {weekDates[6]?.toLocaleDateString()}</h3>
           <div className="bulk-form-info">
-            <p>Total selections: <strong>{getTotalSelections()}</strong></p>
+            <p>
+              New bookings: <strong>{getTotalSelections()}</strong> | 
+              Cancellations: <strong>{getTotalCancellations()}</strong> | 
+              Total operations: <strong>{getTotalOperations()}</strong>
+            </p>
             <button 
               type="button" 
               onClick={clearAllSelections}
@@ -573,9 +597,9 @@ const BulkScheduleForm = () => {
           <button 
             type="submit" 
             className="submit-btn" 
-            disabled={loading || getTotalSelections() === 0}
+            disabled={loading || getTotalOperations() === 0}
           >
-            {loading ? 'Creating Schedules...' : `Create ${getTotalSelections()} Schedule Requests`}
+            {loading ? 'Processing...' : `Process ${getTotalOperations()} Operations`}
           </button>
         </div>
       </form>

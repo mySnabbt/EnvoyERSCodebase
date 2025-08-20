@@ -28,6 +28,7 @@ import DepartmentList from './components/departments/DepartmentList';
 import DepartmentForm from './components/departments/DepartmentForm';
 
 // Schedule components
+import RosterView from './components/schedules/RosterView';
 import SchedulesList from './components/schedules/SchedulesList';
 import ScheduleForm from './components/schedules/ScheduleForm';
 import ScheduleDetail from './components/schedules/ScheduleDetail';
@@ -172,6 +173,12 @@ const AppContent = () => {
           } />
           
           <Route path="/schedules" element={
+            <ProtectedRoute>
+              <RosterView />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/schedules/manage" element={
             <ProtectedRoute>
               <SchedulesList />
             </ProtectedRoute>
