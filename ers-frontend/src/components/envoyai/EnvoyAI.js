@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
 import './EnvoyAI.css';
-import AIDebugPanel from './AIDebugPanel';
-import './AIDebugPanel.css';
 
 const EnvoyAI = () => {
   const { currentUser, isAdmin } = useAuth();
@@ -25,73 +23,21 @@ const EnvoyAI = () => {
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
-  const [availableCommands, setAvailableCommands] = useState([]);
+  // Available commands state removed since command buttons are removed
   const [loading, setLoading] = useState(false);
-  const [chatMode, setChatMode] = useState(() => {
-    // Load chat mode from localStorage if available
-    return localStorage.getItem('envoyai_mode') || 'hybrid';
-  });
+  const [chatMode] = useState('hybrid'); // Hardcoded to hybrid mode
   const [debugLogs, setDebugLogs] = useState([]);
-  const [showDebugPanel, setShowDebugPanel] = useState(() => {
-    // Check if debug panel should be shown (admin only)
-    return isAdmin && localStorage.getItem('show_debug_panel') === 'true';
-  });
+  const [showDebugPanel] = useState(false); // Debug panel always hidden
   
   // Save messages to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem('envoyai_messages', JSON.stringify(messages));
   }, [messages]);
   
-  // Save chat mode to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('envoyai_mode', chatMode);
-  }, [chatMode]);
+  // Chat mode is hardcoded to hybrid, no need to save to localStorage
   
-  // Save debug panel visibility preference
+  // Command fetching removed since command buttons are removed
   useEffect(() => {
-    localStorage.setItem('show_debug_panel', showDebugPanel.toString());
-  }, [showDebugPanel]);
-  
-  // Load available commands when component mounts
-  useEffect(() => {
-    const fetchCommands = async () => {
-      try {
-        const response = await axios.get('/chat/commands');
-        if (response.data?.success) {
-          const commandsText = response.data.data.response;
-          // Parse commands from response text
-          const commandLines = commandsText.split('\n').slice(1); // Skip the first line ("Available commands:")
-          
-          const parsedCommands = commandLines.map(line => {
-            const match = line.match(/^\/([a-z]+) - (.+)$/);
-            if (match) {
-              return {
-                text: `/${match[1]}`,
-                description: match[2]
-              };
-            }
-            return null;
-          }).filter(Boolean);
-          
-          // Separate common and admin commands
-          const adminCmds = parsedCommands.filter(cmd => 
-            cmd.description.toLowerCase().includes('admin only')
-          );
-          
-          const commonCmds = parsedCommands.filter(cmd => 
-            !cmd.description.toLowerCase().includes('admin only')
-          );
-          
-          setAvailableCommands({
-            common: commonCmds,
-            admin: adminCmds
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching commands:', error);
-        addMessage('Failed to fetch available commands. Please try again later.', 'system');
-      }
-    };
     
     // Clear chat history on the backend when component mounts
     const clearChatHistory = async () => {
@@ -106,7 +52,6 @@ const EnvoyAI = () => {
       }
     };
     
-    fetchCommands();
     clearChatHistory();
   }, [currentUser]);
 
@@ -117,12 +62,22 @@ const EnvoyAI = () => {
     }
   }, [messages]);
 
-  // Focus input when component mounts
+  // Focus input when component mounts and after messages change
   useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus();
     }
   }, []);
+
+  // Auto-focus input after messages change (after sending/receiving messages)
+  useEffect(() => {
+    if (inputRef.current && !loading) {
+      // Small delay to ensure DOM updates are complete
+      setTimeout(() => {
+        inputRef.current.focus();
+      }, 100);
+    }
+  }, [messages, loading]);
 
   const handleInputChange = (e) => {
     setInputValue(e.target.value);
@@ -192,6 +147,12 @@ const EnvoyAI = () => {
       }
     } finally {
       setLoading(false);
+      // Restore focus after command processing
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 100);
     }
   };
   
@@ -242,6 +203,12 @@ const EnvoyAI = () => {
       }
     } finally {
       setLoading(false);
+      // Restore focus after message processing
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 100);
     }
   };
 
@@ -255,6 +222,13 @@ const EnvoyAI = () => {
     addMessage(userInput, 'user');
     setInputValue('');
     
+    // Keep focus on input after clearing
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, 50);
+    
     if (userInput.startsWith('/')) {
       // Always process commands with the command endpoint
       await processCommand(userInput);
@@ -267,39 +241,24 @@ const EnvoyAI = () => {
     }
   };
 
-  const handleCommandSuggestionClick = (command) => {
-    setInputValue(command);
-    inputRef.current.focus();
-  };
-
-  const handleHelpClick = () => {
-    processCommand('/help');
-  };
+  // Command suggestion and help click handlers removed
   
-  const toggleChatMode = () => {
-    if (chatMode === 'command') {
-      setChatMode('chat');
-      addMessage('Switched to chat mode. You can now talk naturally.', 'system');
-    } else if (chatMode === 'chat') {
-      setChatMode('hybrid');
-      addMessage('Switched to hybrid mode. You can use commands or talk naturally.', 'system');
-    } else {
-      setChatMode('command');
-      addMessage('Switched to command mode. Please use commands starting with /.', 'system');
-    }
-  };
+  // Chat mode toggle removed - hardcoded to hybrid
   
   const clearChat = () => {
     if (window.confirm('Are you sure you want to clear the chat history?')) {
       setMessages([
         { id: Date.now(), text: 'Chat history cleared. Welcome back to EnvoyAI!', sender: 'system' }
       ]);
+      // Restore focus after clearing chat
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 100);
     }
   };
-  
-  const toggleDebugPanel = () => {
-    setShowDebugPanel(!showDebugPanel);
-  };
+  // Debug panel toggle removed
 
   return (
     <div className="envoyai-container">
@@ -307,25 +266,13 @@ const EnvoyAI = () => {
         <div className="envoyai-header">
           <h2>EnvoyAI Assistant</h2>
           <div className="header-controls">
-            <div className="mode-toggle" onClick={toggleChatMode}>
-              Mode: {chatMode === 'command' ? 'Commands' : chatMode === 'chat' ? 'Chat' : 'Hybrid'}
-            </div>
             <div className="clear-chat" onClick={clearChat} title="Clear chat history">
               Clear
             </div>
-            {isAdmin && (
-              <div 
-                className={`debug-toggle ${showDebugPanel ? 'active' : ''}`} 
-                onClick={toggleDebugPanel}
-                title="Toggle debug panel"
-              >
-                Debug
-              </div>
-            )}
           </div>
         </div>
         
-        <div className="envoyai-messages">
+        <div className="envoyai-messages" onClick={() => inputRef.current?.focus()}>
           {messages.map(message => (
             <div 
               key={message.id} 
@@ -341,40 +288,14 @@ const EnvoyAI = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="command-suggestions">
-          {availableCommands.common && availableCommands.common.map(cmd => (
-            <div 
-              key={cmd.text} 
-              className="command-suggestion"
-              onClick={() => handleCommandSuggestionClick(cmd.text)}
-              title={cmd.description}
-            >
-              {cmd.text}
-            </div>
-          ))}
-          
-          {isAdmin && availableCommands.admin && availableCommands.admin.map(cmd => (
-            <div 
-              key={cmd.text} 
-              className="command-suggestion"
-              onClick={() => handleCommandSuggestionClick(cmd.text)}
-              title={cmd.description}
-            >
-              {cmd.text}
-            </div>
-          ))}
-        </div>
-        
-        <div className="help-button" onClick={handleHelpClick} title="Show available commands">
-          /help
-        </div>
+        {/* Command suggestions and help button removed for cleaner interface */}
         
         <form className="envoyai-input-form" onSubmit={handleSubmit}>
           <input
             type="text"
             value={inputValue}
             onChange={handleInputChange}
-            placeholder={chatMode === 'command' ? "Type a command (e.g., /help)" : "Type a message or command..."}
+            placeholder="Type your message or write /help to see available commands..."
             ref={inputRef}
             disabled={loading}
           />
@@ -383,8 +304,7 @@ const EnvoyAI = () => {
           </button>
         </form>
         
-        {/* Debug panel for admins */}
-        <AIDebugPanel logs={debugLogs} visible={isAdmin && showDebugPanel} />
+        {/* Debug panel removed */}
       </div>
     </div>
   );

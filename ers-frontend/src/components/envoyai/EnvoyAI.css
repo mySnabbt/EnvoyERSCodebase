@@ -1,4 +1,9 @@
 /* EnvoyAI Styles */
+:root {
+  --mobile-nav-height: 80px; /* Height of mobile bottom navigation */
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px); /* Support for devices with notches */
+}
+
 .envoyai-container {
   width: 100%;
   max-width: 100%;
@@ -72,37 +77,7 @@
   gap: 8px;
 }
 
-/* Fixed command suggestions and input form */
-.command-suggestions {
-  position: fixed;
-  bottom: 80px;
-  left: 0;
-  right: 0;
-  display: flex;
-  overflow-x: auto;
-  gap: 10px;
-  padding: 15px 20px;
-  background-color: rgba(248, 249, 250, 0.95);
-  border-top: 1px solid #eaeaea;
-  z-index: 5;
-}
-
-.command-suggestion {
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 20px;
-  padding: 8px 15px;
-  font-size: 14px;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.command-suggestion:hover {
-  background: linear-gradient(135deg, #6e8efb, #a777e3);
-  color: white;
-  border-color: transparent;
-}
+/* Command suggestions removed for cleaner interface */
 
 .envoyai-input-form {
   position: fixed;
@@ -110,10 +85,12 @@
   left: 0;
   right: 0;
   display: flex;
+  align-items: center;
   padding: 15px 20px;
   background-color: white;
   border-top: 1px solid #eaeaea;
   z-index: 5;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .envoyai-input-form input {
@@ -176,76 +153,130 @@
   background: linear-gradient(135deg, #5d7df7, #9566d9);
 }
 
-/* Help button */
-.help-button {
-  position: fixed;
-  bottom: 100px;
-  right: 20px;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #6e8efb, #a777e3);
-  color: white;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 14px;
-  cursor: pointer;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  z-index: 10;
-  transition: all 0.2s ease;
-}
-
-.help-button:hover {
-  transform: scale(1.05);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-}
+/* Help button removed for cleaner interface */
 
 /* Responsive styles */
 @media (max-width: 768px) {
   .envoyai-container {
-    height: calc(100vh - 100px);
+    height: calc(100vh - 60px); /* Adjusted for mobile header */
+    padding: 0;
+    padding-bottom: 80px; /* Account for mobile bottom navigation */
+  }
+  
+  .envoyai-header {
+    padding: 8px 15px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  
+  .envoyai-header h2 {
+    font-size: 1.1rem;
   }
   
   .envoyai-messages {
-    padding: 15px 15px 100px;
+    padding: 10px 10px calc(var(--mobile-nav-height) + 60px + var(--safe-area-bottom)); /* Bottom padding for mobile navigation + input + safe area */
+    gap: 10px;
   }
   
   .message {
-    max-width: 85%;
-    padding: 12px;
-    font-size: 15px;
+    max-width: 90%; /* Wider messages on mobile */
+    padding: 10px 12px;
+    font-size: 14px;
+    border-radius: 15px;
   }
   
-  .command-suggestions {
-    bottom: 70px;
-    padding: 10px 15px;
+  .message.user {
+    max-width: 90%;
   }
   
-  .command-suggestion {
-    padding: 6px 12px;
-    font-size: 13px;
+  .message.system {
+    max-width: 90%;
   }
+  
+  /* Command suggestions removed */
   
   .envoyai-input-form {
-    padding: 12px 15px;
+    bottom: calc(var(--mobile-nav-height) + var(--safe-area-bottom)); /* Above mobile navigation bar + safe area */
+    padding: 10px;
+    gap: 8px;
   }
   
   .envoyai-input-form input {
-    padding: 12px 20px;
+    padding: 10px 16px;
+    font-size: 15px; /* Prevents zoom on iOS */
+    border-radius: 25px;
+    margin-right: 8px;
   }
   
   .envoyai-input-form button {
-    width: 45px;
-    height: 45px;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
   }
   
-  .help-button {
-    width: 45px;
-    height: 45px;
-    right: 15px;
-    bottom: 85px;
+  .envoyai-input-form button i {
+    font-size: 16px;
   }
+  
+  /* Help button removed */
+}
+
+/* Extra small mobile devices */
+@media (max-width: 480px) {
+  .envoyai-container {
+    height: calc(100vh - 50px);
+    padding-bottom: 85px; /* Account for slightly taller mobile navigation on small screens */
+  }
+  
+  .envoyai-header {
+    padding: 6px 12px;
+  }
+  
+  .envoyai-header h2 {
+    font-size: 1rem;
+  }
+  
+  .clear-chat {
+    padding: 4px 8px;
+    font-size: 0.8rem;
+  }
+  
+  .envoyai-messages {
+    padding: 8px 8px calc(var(--mobile-nav-height) + 60px + var(--safe-area-bottom)); /* Bottom padding for small screens with navigation + input + safe area */
+    gap: 8px;
+  }
+  
+  .message {
+    max-width: 95%;
+    padding: 8px 10px;
+    font-size: 13px;
+    border-radius: 12px;
+  }
+  
+  /* Command suggestions removed */
+  
+  .envoyai-input-form {
+    bottom: calc(var(--mobile-nav-height) + 5px + var(--safe-area-bottom)); /* Above mobile navigation bar + safe area */
+    padding: 8px;
+  }
+  
+  .envoyai-input-form input {
+    padding: 8px 14px;
+    font-size: 16px; /* Increased to prevent zoom on small iOS devices */
+    margin-right: 6px;
+  }
+  
+  .envoyai-input-form button {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .envoyai-input-form button i {
+    font-size: 14px;
+  }
+  
+  /* Help button removed */
 }
 
 .envoyai-header {
@@ -271,20 +302,6 @@
   align-items: center;
 }
 
-.mode-toggle {
-  cursor: pointer;
-  padding: 5px 10px;
-  background-color: #e9ecef;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  color: #495057;
-  transition: background-color 0.2s;
-}
-
-.mode-toggle:hover {
-  background-color: #dee2e6;
-}
-
 .clear-chat {
   cursor: pointer;
   padding: 5px 10px;
@@ -297,23 +314,4 @@
 
 .clear-chat:hover {
   background-color: #f5c6cb;
-}
-
-.debug-toggle {
-  cursor: pointer;
-  padding: 5px 10px;
-  background-color: #343a40;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  color: #f8f9fa;
-  transition: all 0.2s ease;
-}
-
-.debug-toggle:hover {
-  background-color: #495057;
-}
-
-.debug-toggle.active {
-  background-color: #007bff;
-  color: white;
 } 
