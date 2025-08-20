@@ -11,6 +11,9 @@ const timeSlotRoutes = require('./routes/timeSlots');
 const rosterRoutes = require('./routes/roster');
 const settingsRoutes = require('./routes/settings');
 const chatRoutes = require('./routes/chat');
+const notificationRoutes = require('./routes/notifications');
+const shiftCancellationRoutes = require('./routes/shiftCancellations');
+const cleanupService = require('./services/CleanupService');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -70,6 +73,8 @@ app.use('/api/time-slots', timeSlotRoutes);
 app.use('/api/roster', rosterRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/shift-cancellations', shiftCancellationRoutes);
 
 app.get('/', (req, res) => {
   res.send('Employee Roster System API');
@@ -87,4 +92,7 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  
+  // Start the cleanup service
+  cleanupService.start();
 }); 

@@ -1,11 +1,14 @@
-import React, { useContext, useEffect } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
+import NotificationBell from './NotificationBell';
+import NotificationPanel from './NotificationPanel';
 import './Layout.css';
 
 const Header = () => {
   const { currentUser, isAdmin, logout } = useContext(AuthContext);
   const navigate = useNavigate();
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     // Debug user data
@@ -68,6 +71,7 @@ const Header = () => {
               </ul>
               
               <div className="user-menu">
+                <NotificationBell onClick={() => setShowNotifications(true)} />
                 <span className="user-name">
                   Hello, {getUserDisplayName()}
                 </span>
@@ -82,6 +86,12 @@ const Header = () => {
           )}
         </nav>
       </div>
+      
+      {/* Notification Panel */}
+      <NotificationPanel 
+        isOpen={showNotifications} 
+        onClose={() => setShowNotifications(false)} 
+      />
     </header>
   );
 };

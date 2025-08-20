@@ -2,11 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
-import { FaClock, FaUser, FaCalendarAlt, FaChevronLeft, FaChevronRight, FaCog } from 'react-icons/fa';
+import { FaClock, FaUser, FaCalendarAlt, FaChevronLeft, FaChevronRight, FaCog, FaTimes } from 'react-icons/fa';
 import './RosterView.css';
 
 const RosterView = () => {
-  const { token, isAdmin } = useAuth();
+  const { currentUser, token, isAdmin } = useAuth();
   
   // State variables
   const [loading, setLoading] = useState(true);
@@ -182,6 +182,44 @@ const RosterView = () => {
     return employeeIds.size;
   };
 
+  // Handle shift cancellation
+  const handleCancelShift = async (schedule) => {
+    // Check if user can cancel this shift
+    const userEmployee = employees.find(emp => emp.user_id === currentUser.id);
+    
+    if (!isAdmin && (!userEmployee || userEmployee.id !== schedule.employee_id)) {
+      alert('You can only cancel your own shifts');
+      return;
+    }
+
+    // Check if shift is in the future
+    const shiftDateTime = new Date(`${schedule.date}T${schedule.start_time}`);
+    if (shiftDateTime <= new Date()) {
+      alert('Cannot cancel a shift that has already started or passed');
+      return;
+    }
+
+    const reason = prompt('Please provide a reason for cancellation (optional):');
+    if (reason === null) return; // User cancelled the prompt
+
+    try {
+      const response = await axios.post('/shift-cancellations', {
+        schedule_id: schedule.id,
+        reason: reason || 'No reason provided'
+      });
+
+      if (response.data.success) {
+        alert('Cancellation request submitted successfully! Other employees will be notified.');
+        // Refresh schedules to show any updates
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('Error cancelling shift:', error);
+      const message = error.response?.data?.message || 'Failed to cancel shift';
+      alert(`Error: ${message}`);
+    }
+  };
+
   if (loading && employees.length === 0) {
     return <div className="loading">Loading roster data...</div>;
   }
@@ -269,16 +307,34 @@ const RosterView = () => {
                       <div className="no-shift">-</div>
                     ) : (
                       <div className="shifts">
-                        {daySchedules.map((schedule, index) => (
-                          <div key={index} className="shift-block">
-                            <div className="shift-time">
-                              {formatTime(schedule.start_time)} - {formatTime(schedule.end_time)}
+                        {daySchedules.map((schedule, index) => {
+                          const userEmployee = employees.find(emp => emp.user_id === currentUser.id);
+                          const canCancel = isAdmin || (userEmployee && userEmployee.id === schedule.employee_id);
+                          const shiftDateTime = new Date(`${schedule.date}T${schedule.start_time}`);
+                          const isFuture = shiftDateTime > new Date();
+                          
+                          return (
+                            <div key={index} className="shift-block">
+                              <div className="shift-content">
+                                <div className="shift-time">
+                                  {formatTime(schedule.start_time)} - {formatTime(schedule.end_time)}
+                                </div>
+                                {schedule.time_slot?.name && (
+                                  <div className="shift-name">{schedule.time_slot.name}</div>
+                                )}
+                              </div>
+                              {canCancel && isFuture && (
+                                <button 
+                                  className="cancel-shift-btn"
+                                  onClick={() => handleCancelShift(schedule)}
+                                  title="Cancel this shift"
+                                >
+                                  <FaTimes />
+                                </button>
+                              )}
                             </div>
-                            {schedule.time_slot?.name && (
-                              <div className="shift-name">{schedule.time_slot.name}</div>
-                            )}
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

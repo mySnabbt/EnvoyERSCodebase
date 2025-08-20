@@ -274,6 +274,39 @@
   padding: 6px 8px;
   text-align: center;
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.shift-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.cancel-shift-btn {
+  background: #dc3545;
+  border: none;
+  border-radius: 3px;
+  color: white;
+  padding: 2px 4px;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  transition: all 0.2s ease;
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.cancel-shift-btn:hover {
+  background: #c82333;
+  opacity: 1;
+  transform: scale(1.1);
 }
 
 .shift-time {
@@ -318,6 +351,27 @@
 
 .shifts .shift-block:nth-child(3) .shift-name {
   color: #e91e63;
+}
+
+/* Mobile responsive adjustments for cancel buttons */
+@media (max-width: 768px) {
+  .shift-block {
+    padding: 4px 6px;
+  }
+  
+  .cancel-shift-btn {
+    min-width: 16px;
+    height: 16px;
+    font-size: 9px;
+  }
+  
+  .shift-time {
+    font-size: 10px;
+  }
+  
+  .shift-name {
+    font-size: 9px;
+  }
 }
 
 /* Error and Loading States */
