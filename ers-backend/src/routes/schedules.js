@@ -38,6 +38,11 @@ router.post('/', authenticateToken, ScheduleController.requestSchedule);
 // @access  Private
 router.post('/weekly', authenticateToken, ScheduleController.requestWeeklySchedule);
 
+// @route   POST /api/schedules/bulk
+// @desc    Bulk schedule operations (create/cancel) - Admin only
+// @access  Admin only
+router.post('/bulk', authenticateToken, authorizeAdmin, ScheduleController.bulkScheduleOperations);
+
 // @route   PATCH /api/schedules/:id/approve
 // @desc    Approve a schedule request
 // @access  Admin only

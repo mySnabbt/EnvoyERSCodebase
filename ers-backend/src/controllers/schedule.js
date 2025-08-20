@@ -676,6 +676,119 @@ const ScheduleController = {
         message: 'Server error'
       });
     }
+  },
+
+  // Bulk schedule operations (admin only)
+  async bulkScheduleOperations(req, res) {
+    try {
+      console.log('Received bulk schedule operations request:', JSON.stringify(req.body, null, 2));
+      
+      const { 
+        newBookings = [], // Array of new schedule requests
+        cancellations = [] // Array of schedule IDs to delete
+      } = req.body;
+      
+      // Validate input
+      if (!Array.isArray(newBookings) && !Array.isArray(cancellations)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please provide newBookings and/or cancellations arrays'
+        });
+      }
+      
+      const results = {
+        newBookings: { success: [], errors: [] },
+        cancellations: { success: [], errors: [] }
+      };
+      
+      // Process cancellations first
+      for (const scheduleId of cancellations) {
+        try {
+          await ScheduleModel.deleteSchedule(scheduleId);
+          results.cancellations.success.push(scheduleId);
+        } catch (err) {
+          console.error(`Error canceling schedule ${scheduleId}:`, err);
+          results.cancellations.errors.push({
+            scheduleId,
+            error: err.message
+          });
+        }
+      }
+      
+      // Process new bookings
+      for (const bookingRequest of newBookings) {
+        try {
+          const { 
+            employee_id, 
+            date, 
+            time_slot_id,
+            notes 
+          } = bookingRequest;
+          
+          // Validate required fields
+          if (!employee_id || !date || !time_slot_id) {
+            results.newBookings.errors.push({
+              booking: bookingRequest,
+              error: 'Missing required fields: employee_id, date, time_slot_id'
+            });
+            continue;
+          }
+          
+          // Get the time slot details
+          const timeSlot = await TimeSlotModel.getTimeSlotById(time_slot_id);
+          if (!timeSlot) {
+            results.newBookings.errors.push({
+              booking: bookingRequest,
+              error: 'Time slot not found'
+            });
+            continue;
+          }
+          
+          // Create schedule data with auto-approval for admin
+          const scheduleData = {
+            employee_id,
+            date,
+            time_slot_id,
+            start_time: timeSlot.start_time,
+            end_time: timeSlot.end_time,
+            notes: notes || null,
+            status: 'approved', // Auto-approve for admin
+            requested_by: req.user.user_id,
+            approved_by: req.user.user_id, // Admin auto-approves
+            approval_date: new Date().toISOString()
+          };
+          
+          // Create the schedule using createSchedule to allow admin override
+          const schedule = await ScheduleModel.createSchedule(scheduleData);
+          results.newBookings.success.push(schedule);
+          
+        } catch (err) {
+          console.error('Error creating bulk booking:', err);
+          results.newBookings.errors.push({
+            booking: bookingRequest,
+            error: err.message
+          });
+        }
+      }
+      
+      const totalSuccessful = results.newBookings.success.length + results.cancellations.success.length;
+      const totalErrors = results.newBookings.errors.length + results.cancellations.errors.length;
+      
+      console.log(`Bulk operation completed: ${totalSuccessful} successful, ${totalErrors} errors`);
+      
+      return res.status(200).json({
+        success: true,
+        message: `Bulk operation completed: ${results.newBookings.success.length} bookings created, ${results.cancellations.success.length} bookings canceled`,
+        data: results
+      });
+      
+    } catch (error) {
+      console.error('Bulk schedule operations error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Server error during bulk operations'
+      });
+    }
   }
 };
 

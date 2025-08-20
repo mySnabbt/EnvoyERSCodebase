@@ -7,7 +7,16 @@ import './BulkScheduleForm.css';
 
 const BulkScheduleForm = () => {
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, isAdmin, currentUser } = useAuth();
+  
+  // Admin access control
+  useEffect(() => {
+    if (!isAdmin) {
+      console.warn('Non-admin user attempted to access bulk schedule form');
+      navigate('/dashboard');
+      return;
+    }
+  }, [isAdmin, navigate]);
   
   // State variables
   const [loading, setLoading] = useState(false);
@@ -350,8 +359,8 @@ const BulkScheduleForm = () => {
         });
       });
       
-      // Handle cancellations
-      const cancellationPromises = [];
+      // Prepare cancellations - collect schedule IDs to cancel
+      const cancellationIds = [];
       Object.entries(bookingsToCancel).forEach(([employeeId, employeeDays]) => {
         Object.entries(employeeDays).forEach(([dayIndex, timeSlotIds]) => {
           if (timeSlotIds.length > 0) {
@@ -364,31 +373,33 @@ const BulkScheduleForm = () => {
               );
               
               if (bookingToCancel) {
-                cancellationPromises.push(
-                  axios.delete(`/schedules/${bookingToCancel.id}`)
-                );
+                cancellationIds.push(bookingToCancel.id);
               }
             });
           }
         });
       });
 
-      console.log('Submitting schedule requests:', scheduleRequests);
-      console.log('Cancelling bookings:', cancellationPromises.length);
+      console.log('Submitting bulk schedule operations:');
+      console.log('- New bookings:', scheduleRequests.length);
+      console.log('- Cancellations:', cancellationIds.length);
       
-      // Submit all requests (both new bookings and cancellations)
-      const newBookingPromises = scheduleRequests.map(request => 
-        axios.post('/schedules', request)
-      );
+      // Use the new bulk endpoint
+      const bulkData = {
+        newBookings: scheduleRequests,
+        cancellations: cancellationIds
+      };
       
-      const allPromises = [...newBookingPromises, ...cancellationPromises];
-      const responses = await Promise.all(allPromises);
+      const response = await axios.post('/schedules/bulk', bulkData);
       
-      const successCount = responses.filter(response => response.data?.success || response.status === 200).length;
-      const errorCount = responses.length - successCount;
-      
-      if (errorCount === 0) {
-        setSuccess(`Successfully processed ${newBookingPromises.length} new bookings and ${cancellationPromises.length} cancellations!`);
+      if (response.data?.success) {
+        const { newBookings, cancellations } = response.data.data;
+        setSuccess(`Successfully processed ${newBookings.success.length} new bookings and ${cancellations.success.length} cancellations!`);
+        
+        if (newBookings.errors.length > 0 || cancellations.errors.length > 0) {
+          console.warn('Some operations had errors:', { newBookings: newBookings.errors, cancellations: cancellations.errors });
+        }
+        
         // Clear selections after successful submission
         setScheduleSelections({});
         setBookingsToCancel({});
@@ -396,7 +407,7 @@ const BulkScheduleForm = () => {
         // Refresh existing bookings
         await fetchExistingBookings();
       } else {
-        setError(`Processed ${successCount} requests, but ${errorCount} failed. Please check for conflicts.`);
+        setError('Failed to process bulk schedule operations. Please try again.');
       }
       
       setLoading(false);
@@ -428,10 +439,25 @@ const BulkScheduleForm = () => {
     return <div className="loading">Loading employees and time slots...</div>;
   }
 
+  // Show access denied for non-admin users
+  if (!isAdmin) {
+    return (
+      <div className="schedule-form-container">
+        <div className="form-header">
+          <h2>Access Denied</h2>
+          <div className="alert alert-danger">
+            <h4>Administrator Access Required</h4>
+            <p>Only administrators can access the bulk schedule creation feature.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="schedule-form-container">
       <div className="form-header">
-        <h2>Bulk Schedule Creation</h2>
+        <h2>Bulk Schedule Creation (Admin Only)</h2>
         <p>Select time slots for multiple employees across the week</p>
       </div>
 
