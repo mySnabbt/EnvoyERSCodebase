@@ -6,6 +6,8 @@ const UserModel = require('../../models/user');
 const OpenAIService = require('./OpenAIService');
 const SystemSettingsModel = require('../../models/systemSettings');
 const SqlExecutionService = require('./SqlExecutionService');
+const ShiftCancellationModel = require('../../models/shiftCancellation');
+const NotificationModel = require('../../models/notification');
 
 class ChatService {
   constructor() {
@@ -465,6 +467,271 @@ class ChatService {
         } catch (error) {
           console.error('Error getting employees by date and time slot:', error);
           return { error: 'Error retrieving employee roster data' };
+        }
+      },
+      
+      // 🆕 SHIFT CANCELLATION FUNCTIONS FOR AI
+      getCancellationRequests: async ({ status = 'pending' } = {}, context = {}) => {
+        try {
+          console.log(`[AI-CANCELLATION] Getting cancellation requests with status: ${status}`);
+          
+          const result = await ShiftCancellationModel.getActiveCancellationRequests();
+          
+          if (!result || result.length === 0) {
+            return { 
+              message: 'No active shift cancellation requests found.',
+              requests: []
+            };
+          }
+          
+          // Filter by status if specified (though getActiveCancellationRequests already filters for pending)
+          const filteredRequests = result.filter(req => req.status === status);
+          
+          // Format the response for AI consumption
+          const formattedRequests = filteredRequests.map(req => ({
+            id: req.id,
+            schedule_id: req.schedule_id,
+            requested_by: req.requested_by,
+            requester_name: req.requested_by_user?.name || 'Unknown',
+            reason: req.reason,
+            status: req.status,
+            created_at: req.created_at,
+            expires_at: req.expires_at,
+            shift_details: {
+              date: req.schedule?.date,
+              start_time: req.schedule?.start_time,
+              end_time: req.schedule?.end_time,
+              time_slot_name: req.schedule?.time_slot?.name,
+              department_name: req.schedule?.employee?.department?.name
+            }
+          }));
+          
+          return {
+            message: `Found ${formattedRequests.length} ${status} cancellation request(s).`,
+            requests: formattedRequests,
+            total_count: formattedRequests.length
+          };
+        } catch (error) {
+          console.error('Error getting cancellation requests:', error);
+          return { 
+            error: 'Error retrieving cancellation requests. Please try again later.',
+            requests: []
+          };
+        }
+      },
+
+      requestShiftCancellation: async ({ scheduleId, reason = '' }, context = {}) => {
+        try {
+          console.log(`[AI-CANCELLATION] User ${context.user?.id} requesting cancellation for schedule ${scheduleId}`);
+          
+          if (!scheduleId) {
+            return { error: 'Schedule ID is required to request cancellation.' };
+          }
+          
+          // Get user's employee ID
+          const employees = await EmployeeModel.getAllEmployees();
+          const userEmployee = employees.find(emp => 
+            emp.user_id === context.user?.id || emp.email === context.user?.email
+          );
+          
+          if (!userEmployee) {
+            return { error: 'Employee profile not found. Please contact an administrator.' };
+          }
+          
+          // Verify the schedule belongs to the user
+          const schedule = await ScheduleModel.getScheduleById(scheduleId);
+          if (!schedule) {
+            return { error: 'Schedule not found.' };
+          }
+          
+          if (schedule.employee_id !== userEmployee.id) {
+            return { error: 'You can only request cancellation for your own shifts.' };
+          }
+          
+          // Check if shift is in the future
+          const shiftDateTime = new Date(`${schedule.date}T${schedule.start_time}`);
+          if (shiftDateTime <= new Date()) {
+            return { error: 'You can only cancel future shifts.' };
+          }
+          
+          // Create the cancellation request
+          const requestData = {
+            schedule_id: scheduleId,
+            requested_by: context.user?.id,
+            reason: reason,
+            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours from now
+          };
+          
+          const result = await ShiftCancellationModel.createCancellationRequest(requestData);
+          
+          // Create notifications for all users (excluding the requester)
+          try {
+            const allUsers = await UserModel.getAllUsers();
+            const usersToNotify = allUsers.filter(user => user.id !== context.user?.id);
+            
+            // Prepare notification data
+            const shiftInfo = `${schedule.time_slot?.name || 'Shift'} on ${new Date(schedule.date).toLocaleDateString()} from ${schedule.start_time} to ${schedule.end_time}`;
+            const requesterName = context.user?.name || context.user?.email || 'Unknown';
+            
+            const notifications = usersToNotify.map(user => ({
+              user_id: user.id,
+              type: 'shift_cancellation',
+              title: 'Shift Cancellation Request',
+              message: `${requesterName} wants to cancel their shift: ${shiftInfo}. Can you work this time?`,
+              data: {
+                cancellation_request_id: result.id,
+                schedule_id: scheduleId,
+                shift_info: shiftInfo,
+                requested_by: context.user?.id,
+                requester_name: requesterName
+              },
+              expires_at: requestData.expires_at
+            }));
+            
+            await NotificationModel.createBulkNotifications(notifications);
+            console.log(`✅ AI: Created ${notifications.length} notifications for cancellation request ${result.id}`);
+          } catch (notificationError) {
+            console.error('⚠️ Warning: Failed to create notifications, but cancellation request was created:', notificationError);
+            // Don't fail the whole operation if notification creation fails
+          }
+          
+          return {
+            success: true,
+            message: `Shift cancellation requested successfully! Other employees will be notified about the available shift.`,
+            cancellation_request: {
+              id: result.id,
+              schedule_id: scheduleId,
+              reason: reason,
+              status: result.status,
+              expires_at: result.expires_at
+            }
+          };
+        } catch (error) {
+          console.error('Error requesting shift cancellation:', error);
+          return { 
+            error: error.message || 'Error requesting shift cancellation. Please try again later.'
+          };
+        }
+      },
+
+      acceptShiftCancellation: async ({ cancellationRequestId }, context = {}) => {
+        try {
+          console.log(`[AI-CANCELLATION] User ${context.user?.id} accepting cancellation ${cancellationRequestId}`);
+          
+          if (!cancellationRequestId) {
+            return { error: 'Cancellation request ID is required.' };
+          }
+          
+          // Get user's employee ID
+          const employees = await EmployeeModel.getAllEmployees();
+          const userEmployee = employees.find(emp => 
+            emp.user_id === context.user?.id || emp.email === context.user?.email
+          );
+          
+          if (!userEmployee) {
+            return { error: 'Employee profile not found. Please contact an administrator.' };
+          }
+          
+          // Accept the cancellation (this will reassign the shift)
+          const result = await ShiftCancellationModel.fulfillCancellationRequest(
+            cancellationRequestId, 
+            context.user?.id, // fulfilled_by (user ID)
+            userEmployee.id   // new employee ID for the schedule
+          );
+          
+          // Trigger instant cleanup of related notifications
+          try {
+            await NotificationModel.deleteNotificationsByCancellationRequest(cancellationRequestId);
+            console.log(`✅ AI Instant cleanup: Removed all notifications for cancellation request ${cancellationRequestId}`);
+          } catch (cleanupError) {
+            console.error('⚠️ Warning: AI instant cleanup failed, but shift was still accepted:', cleanupError);
+          }
+          
+          return {
+            success: true,
+            message: `Shift accepted successfully! You are now scheduled for this shift. The shift has been updated in your schedule.`,
+            shift_details: {
+              schedule_id: result.updatedSchedule?.id,
+              date: result.updatedSchedule?.date,
+              start_time: result.updatedSchedule?.start_time,
+              end_time: result.updatedSchedule?.end_time,
+              time_slot_name: result.updatedSchedule?.time_slot?.name
+            }
+          };
+        } catch (error) {
+          console.error('Error accepting shift cancellation:', error);
+          return { 
+            error: error.message || 'Error accepting shift. Please try again later.'
+          };
+        }
+      },
+
+      adminReassignShift: async ({ cancellationRequestId, employeeId, employeeName }, context = {}) => {
+        try {
+          console.log(`[AI-CANCELLATION] Admin ${context.user?.id} reassigning cancellation ${cancellationRequestId}`);
+          
+          // Check if user is admin
+          if (context.user?.role !== 'admin') {
+            return { error: 'This function is only available to administrators.' };
+          }
+          
+          if (!cancellationRequestId) {
+            return { error: 'Cancellation request ID is required.' };
+          }
+          
+          let targetEmployeeId = employeeId;
+          
+          // If employeeName is provided instead of employeeId, look up the employee
+          if (!targetEmployeeId && employeeName) {
+            const employees = await EmployeeModel.getAllEmployees();
+            const targetEmployee = employees.find(emp => 
+              emp.name?.toLowerCase().includes(employeeName.toLowerCase()) ||
+              emp.email?.toLowerCase().includes(employeeName.toLowerCase())
+            );
+            
+            if (!targetEmployee) {
+              return { error: `Employee '${employeeName}' not found. Please check the name or use employee ID.` };
+            }
+            
+            targetEmployeeId = targetEmployee.id;
+          }
+          
+          if (!targetEmployeeId) {
+            return { error: 'Either employee ID or employee name is required.' };
+          }
+          
+          // Perform the admin reassignment (using fulfillCancellationRequest)
+          const result = await ShiftCancellationModel.fulfillCancellationRequest(
+            cancellationRequestId, 
+            context.user?.id, // fulfilled_by (admin user ID)
+            targetEmployeeId  // new employee ID for the schedule
+          );
+          
+          // Trigger instant cleanup of related notifications
+          try {
+            await NotificationModel.deleteNotificationsByCancellationRequest(cancellationRequestId);
+            console.log(`✅ AI Admin instant cleanup: Removed all notifications for cancellation request ${cancellationRequestId}`);
+          } catch (cleanupError) {
+            console.error('⚠️ Warning: AI admin instant cleanup failed, but shift was reassigned:', cleanupError);
+          }
+          
+          return {
+            success: true,
+            message: `Shift successfully reassigned to ${result.updatedSchedule?.employee?.name}! The shift has been updated in their schedule.`,
+            shift_details: {
+              schedule_id: result.updatedSchedule?.id,
+              assigned_to: result.updatedSchedule?.employee?.name,
+              date: result.updatedSchedule?.date,
+              start_time: result.updatedSchedule?.start_time,
+              end_time: result.updatedSchedule?.end_time,
+              time_slot_name: result.updatedSchedule?.time_slot?.name
+            }
+          };
+        } catch (error) {
+          console.error('Error in admin reassign shift:', error);
+          return { 
+            error: error.message || 'Error reassigning shift. Please try again later.'
+          };
         }
       }
     };

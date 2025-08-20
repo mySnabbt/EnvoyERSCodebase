@@ -85,7 +85,9 @@ ${userInfo && userInfo.role === 'admin' ? `DATABASE SCHEMA FOR SQL QUERIES:
 - employees: id(UUID), name, email, phone, position, department_id(UUID -> departments.id), hire_date, status, created_at, updated_at, user_id(UUID -> users.id)
 - schedules: id(UUID), employee_id(UUID -> employees.id), date, start_time, end_time, notes, created_at, updated_at, requested_by(UUID -> users.id), approved_by(UUID -> users.id), approval_date, time_slot_id(UUID -> time_slots.id), week_start_date, rejection_reason, status(pending/approved/rejected)
 - time_slots: id(UUID), day_of_week(int, 0=Sunday), start_time, end_time, name, description, created_at, updated_at
-- time_slot_limits: id(UUID), time_slot_id(UUID -> time_slots.id), max_employees(int), created_at, updated_at` : ''}
+- time_slot_limits: id(UUID), time_slot_id(UUID -> time_slots.id), max_employees(int), created_at, updated_at
+- shift_cancellation_requests: id(UUID), schedule_id(UUID -> schedules.id), requested_by(UUID -> users.id), reason, status(pending/fulfilled/expired/cancelled), created_at, updated_at, expires_at, fulfilled_by(UUID -> users.id), fulfilled_at
+- notifications: id(UUID), user_id(UUID -> users.id), type(shift_cancellation/system/approval), title, message, data(JSONB), read(boolean), created_at, expires_at` : ''}
 Current date: ${new Date().toLocaleDateString()}
 
 RESPONSE FORMAT:
@@ -109,9 +111,30 @@ IMPORTANT RULES:
 - If the user is an admin, they can book for other employees and their bookings are auto-approved
 - For admin users who ask about employees working on a specific date, use getEmployeesByDateAndTimeSlot function
 
+SHIFT CANCELLATION CAPABILITIES:
+- Users can request cancellation of their own future shifts using requestShiftCancellation
+- All users can view active cancellation requests using getCancellationRequests
+- Users can volunteer for cancelled shifts using acceptShiftCancellation
+- Admins can reassign cancelled shifts to any employee using adminReassignShift
+- Before cancelling: ALWAYS call getUserSchedules first to get the user's schedule IDs
+- Before accepting/reassigning: ALWAYS call getCancellationRequests first to get current cancellation request IDs
+- Only future shifts can be cancelled
+- Users cannot accept their own cancellation requests
+
+SHIFT CANCELLATION EXAMPLES:
+- User: "I need to cancel my Thursday shift" → Get user schedules, find Thursday shift, request cancellation
+- User: "Show me available shifts to pick up" → Get cancellation requests, show available shifts
+- User: "I'll take the morning shift someone cancelled" → Get cancellation requests, accept specific request
+- Admin: "Reassign the Friday shift to Sarah" → Get cancellation requests, find Friday shift, reassign to Sarah
+
 COMMON BOOKING ERRORS:
 - "Schedule conflicts with an existing time slot" - The user already has a booking that overlaps
-- "You already have a booking that overlaps with this time slot" - Same as above`
+- "You already have a booking that overlaps with this time slot" - Same as above
+
+COMMON CANCELLATION ERRORS:
+- "You can only request cancellation for your own shifts" - User tried to cancel someone else's shift
+- "You can only cancel future shifts" - User tried to cancel a past/current shift
+- "You cannot accept your own cancellation requests" - User tried to accept their own request`
       };
 
       // Define available functions
@@ -245,6 +268,70 @@ COMMON BOOKING ERRORS:
               }
             },
             required: ["query", "explanation"]
+          }
+        },
+        getCancellationRequests: {
+          description: "Get all active shift cancellation requests. Users can see requests they can help with, admins can see all requests.",
+          parameters: {
+            type: "object",
+            properties: {
+              status: {
+                type: "string",
+                description: "Optional: Filter by status ('pending', 'fulfilled', 'expired', 'cancelled'). Defaults to 'pending'."
+              }
+            },
+            required: []
+          }
+        },
+        requestShiftCancellation: {
+          description: "Request cancellation of your own scheduled shift. Only future shifts can be cancelled.",
+          parameters: {
+            type: "object",
+            properties: {
+              scheduleId: {
+                type: "string",
+                description: "The UUID of the schedule/shift to cancel. Get this from getUserSchedules."
+              },
+              reason: {
+                type: "string",
+                description: "Optional: Reason for requesting the cancellation."
+              }
+            },
+            required: ["scheduleId"]
+          }
+        },
+        acceptShiftCancellation: {
+          description: "Accept/volunteer for a cancelled shift. You cannot accept your own cancellation requests.",
+          parameters: {
+            type: "object",
+            properties: {
+              cancellationRequestId: {
+                type: "string",
+                description: "The UUID of the cancellation request to accept. Get this from getCancellationRequests."
+              }
+            },
+            required: ["cancellationRequestId"]
+          }
+        },
+        adminReassignShift: {
+          description: "ADMIN ONLY: Reassign a cancelled shift to any employee. Can assign to anyone including the original requester.",
+          parameters: {
+            type: "object",
+            properties: {
+              cancellationRequestId: {
+                type: "string",
+                description: "The UUID of the cancellation request to reassign. Get this from getCancellationRequests."
+              },
+              employeeId: {
+                type: "string",
+                description: "The UUID of the employee to assign the shift to. Get this from getAllEmployees."
+              },
+              employeeName: {
+                type: "string",
+                description: "Optional: The name of the employee (alternative to employeeId). System will look up by name."
+              }
+            },
+            required: ["cancellationRequestId"]
           }
         }
       };
